@@ -11,18 +11,19 @@ While the cloud engine builds a **Digital Twin** of your home to calculate the o
 **This repository is currently in the PROTOTYPE phase.**
 The code provided here is a proof-of-concept intended for developers and early hardware testers. It focuses on:
 
-*   **Secure Telemetry:** Direct serialization of sensor data (Temperature, Humidity) to OASIS JSON schemas.
-*   **Command Execution:** Polling the OASIS Cloud for the latest AI-driven modulation strategies.
-*   **Fail-safe Logic:** Implementing local hysteresis fallbacks in case of network loss.
+* **Secure Telemetry:** Direct serialization of sensor data (Temperature, Humidity) to OASIS JSON schemas.
+* **Command Execution:** Polling the OASIS Cloud for the latest AI-driven modulation strategies.
+* **Fail-safe Logic:** Implementing local hysteresis fallbacks in case of network loss.
 
 ### The Vision
 
 We are building a "neural link" for your heating system. Unlike standard smart thermostats, this firmware is designed to be an extension of our Reinforcement Learning models, capable of receiving complex modulation instructions rather than simple ON/OFF signals.
 
 **Key Features (In Development):**
-*   Native HTTPS communication with OASIS API.
-*   Efficient JSON parsing using ArduinoJson.
-*   Over-The-Air (OTA) updates managed by the cloud.
+
+* Native HTTPS communication with OASIS API.
+* Efficient JSON parsing using ArduinoJson.
+* Over-The-Air (OTA) updates managed by the cloud.
 
 ---
 
