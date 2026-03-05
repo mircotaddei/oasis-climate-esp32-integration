@@ -19,6 +19,7 @@ DallasSensor::DallasSensor(int pin) {
     // Load Defaults
     _offset = DEFAULT_DALLAS_OFFSET;
     _alpha = DEFAULT_DALLAS_ALPHA;
+    strlcpy(_sensorType, "temp_in", sizeof(_sensorType));
     
     _errorCount = 0;
     _filteredTemp = NAN;
@@ -132,12 +133,24 @@ void DallasSensor::applyFilter(float rawTemp) {
 }
 
 
+// --- UNIFIED TELEMETRY INTERFACE ---------------------------------------------
+
+const char* DallasSensor::getSensorType() const {
+    return _sensorType;
+}
+
+float DallasSensor::getTelemetryValue() const {
+    return getTemperature(); // Map to the specific method
+}
+
+
 // --- META CONFIGURATION ------------------------------------------------------
 
 void DallasSensor::populateMeta(JsonObject& meta) const {
     meta["pin"] = _pin;
     meta["offset"] = _offset;
     meta["alpha"] = _alpha;
+    meta["sensor_type"] = _sensorType;
 }
 
 void DallasSensor::applyMeta(JsonObjectConst meta) {
@@ -149,20 +162,23 @@ void DallasSensor::applyMeta(JsonObjectConst meta) {
         if (_alpha < 0.01) _alpha = 0.01;
         if (_alpha > 1.0) _alpha = 1.0;
     }
-    DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Offset: ", _offset, " Alpha: ", _alpha);
+    if (meta["sensor_type"].is<const char*>()) {
+        strlcpy(_sensorType, meta["sensor_type"].as<const char*>(), sizeof(_sensorType));
+    }
+    DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Type: ", _sensorType, " Offset: ", _offset);
 }
 
 
 // --- GETTERS & SETTERS -------------------------------------------------------
 
-float DallasSensor::getTemperature() {
+float DallasSensor::getTemperature() const {
     if (_isConnected && !isnan(_filteredTemp)) {
         return _filteredTemp + _offset; 
     }
     return NAN;
 }
 
-float DallasSensor::getHumidity() { return NAN; }
+float DallasSensor::getHumidity() const { return NAN; }
 
 // FIX: Renamed getId to getLocalId to match OasisDevice interface
 const char* DallasSensor::getLocalId() const { return _id; }

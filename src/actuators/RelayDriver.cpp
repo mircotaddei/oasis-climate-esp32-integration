@@ -18,6 +18,7 @@ RelayDriver::RelayDriver(int pin, bool activeHigh) {
     // Load Defaults
     _modulationThreshold = DEFAULT_MODULATION_THRESHOLD;
     _safetyTimeoutMs = DEFAULT_SAFETY_TIMEOUT_MS;
+    strlcpy(_sensorType, "relay_state", sizeof(_sensorType)); // Default API type
 }
 
 
@@ -88,6 +89,17 @@ void RelayDriver::turnOff() {
 }
 
 
+// --- UNIFIED TELEMETRY INTERFACE ---------------------------------------------
+
+const char* RelayDriver::getSensorType() const {
+    return _sensorType;
+}
+
+float RelayDriver::getTelemetryValue() const {
+    return getCurrentState(); // 1.0 for ON, 0.0 for OFF
+}
+
+
 // --- POPULATE META -----------------------------------------------------------
 
 void RelayDriver::populateMeta(JsonObject& meta) const {
@@ -95,6 +107,7 @@ void RelayDriver::populateMeta(JsonObject& meta) const {
     meta["active_high"] = _activeHigh;
     meta["modulation_threshold"] = _modulationThreshold;
     meta["safety_timeout_ms"] = _safetyTimeoutMs;
+    meta["sensor_type"] = _sensorType;
 }
 
 
@@ -107,7 +120,10 @@ void RelayDriver::applyMeta(JsonObjectConst meta) {
     if (meta["safety_timeout_ms"].is<unsigned long>()) {
         _safetyTimeoutMs = meta["safety_timeout_ms"].as<unsigned long>();
     }
-    DEBUG_PRINTLN("[RELAY] Meta Applied. Threshold: ", _modulationThreshold);
+    if (meta["sensor_type"].is<const char*>()) {
+        strlcpy(_sensorType, meta["sensor_type"].as<const char*>(), sizeof(_sensorType));
+    }
+    DEBUG_PRINTLN("[RELAY] Meta Applied. Type: ", _sensorType, " Threshold: ", _modulationThreshold);
 }
 
 

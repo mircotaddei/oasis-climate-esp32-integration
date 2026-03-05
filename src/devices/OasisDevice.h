@@ -36,10 +36,16 @@ public:
     virtual void setActive(bool state) = 0;
     virtual bool isConnected() const = 0;
 
+    // Unified Telemetry Interface
+    // Returns the API string type (e.g., "temp_in", "relay_state")
+    virtual const char* getSensorType() const = 0; 
+    // Returns the current value to be sent in the telemetry batch
+    virtual float getTelemetryValue() const = 0; 
+
+
     // Configuration (Meta)
     // Populates the JSON object with the device's current configuration
-    virtual void populateMeta(JsonObject& meta) const = 0;
-    
+    virtual void populateMeta(JsonObject& meta) const = 0;    
     // Applies configuration received from the backend or NVS
     virtual void applyMeta(JsonObjectConst meta) = 0;
 };

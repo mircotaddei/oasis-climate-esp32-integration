@@ -336,25 +336,23 @@ void loop() {
             break;
 
         case STATE_RUNNING: {
-            // 1. Sampling Loop (Fast)
+            // 1. Sampling Loop (Fast - e.g., every 60s)
             unsigned long sampleInterval = 60000; 
-            
             if (millis() - lastSampleMillis > sampleInterval) {
                 lastSampleMillis = millis();
-                DEBUG_PRINTLN("[MAIN] STATE RUNNING - Sampling Loop");
+                DEBUG_PRINTLN("[MAIN] Sampling Devices...");
                 
                 const auto& devices = hardwareManager.getAllDevices();
                 unsigned long now = timeManager.getEpoch();
                 
                 for (int i = 0; i < devices.size(); i++) {
                     OasisDevice* dev = devices[i];
-                    if (dev->getType() == DEVICE_TYPE_SENSOR_DALLAS || dev->getType() == DEVICE_TYPE_SENSOR_DHT) {
-                        SensorDriver* sensor = static_cast<SensorDriver*>(dev);
-                        if (sensor->isActive() && sensor->isConnected()) {
-                            float val = sensor->getTemperature();
-                            if (!isnan(val)) {
-                                telemetryBuffer.add(now, i, val);
-                            }
+                    
+                    // FIX: Unified interface, no casting needed!
+                    if (dev->isActive() && dev->isConnected()) {
+                        float val = dev->getTelemetryValue();
+                        if (!isnan(val)) {
+                            telemetryBuffer.add(now, i, val);
                         }
                     }
                 }

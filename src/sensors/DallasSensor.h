@@ -24,19 +24,27 @@ public:
     // OasisDevice Interface
     void begin() override;
     void update() override;
+
     OasisDeviceType getType() const override;
     const char* getLocalId() const override;
+
     const char* getGlobalId() const override;
     void setGlobalId(const char* globalId) override;
+
     bool isActive() const override;
     void setActive(bool state) override;
     bool isConnected() const override;
+
+    const char* getSensorType() const override;
+    float getTelemetryValue() const override;
+
     void populateMeta(JsonObject& meta) const override;
     void applyMeta(JsonObjectConst meta) override;
+    
 
     // SensorDriver Interface
-    float getTemperature() override;
-    float getHumidity() override;
+    float getTemperature() const override;
+    float getHumidity() const override;
     unsigned long getWarmupTimeMs() const override;
     unsigned int getErrorCount() const override;
     void clearErrorCount() override;
@@ -59,6 +67,7 @@ private:
     // Software Configuration (Meta)
     float _offset;
     float _alpha; // Smoothing factor
+    char _sensorType[32];
     
     // Internal State
     unsigned int _errorCount;

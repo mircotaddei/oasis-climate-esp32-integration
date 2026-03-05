@@ -11,8 +11,8 @@ public:
     virtual ~SensorDriver() {}
 
     // Sensor specific methods
-    virtual float getTemperature() = 0;
-    virtual float getHumidity() = 0;
+    virtual float getTemperature() const = 0;
+    virtual float getHumidity() const = 0;
     
     // Time required to stabilize after power-on or reconnection
     virtual unsigned long getWarmupTimeMs() const = 0;

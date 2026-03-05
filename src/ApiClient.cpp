@@ -150,6 +150,9 @@ bool ApiClient::fetchConfig(ConfigManager* config) {
 
 // --- REGISTER DEVICES --------------------------------------------------------
 
+// 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+// --- REGISTER DEVICES --------------------------------------------------------
+
 void ApiClient::registerDevices(ConfigManager* config, const std::vector<OasisDevice*>& devices) {
     if (WiFi.status() != WL_CONNECTED) return;
 
@@ -168,19 +171,14 @@ void ApiClient::registerDevices(ConfigManager* config, const std::vector<OasisDe
         http.addHeader("Content-Type", "application/json");
         http.addHeader("X-API-KEY", config->apiKey);
 
-        // Build the payload using modern JsonDocument
         JsonDocument doc;
         doc["local_id"] = device->getLocalId();
         doc["integration_source"] = "esp32";
         doc["name"] = String("Device ") + String(device->getLocalId());
         
-        switch (device->getType()) {
-            case DEVICE_TYPE_SENSOR_DALLAS: doc["type"] = "temp_in"; break;
-            case DEVICE_TYPE_ACTUATOR_RELAY: doc["type"] = "relay"; break;
-            default: doc["type"] = "generic"; break;
-        }
+        // FIX: Use the dynamic type provided by the device itself
+        doc["type"] = device->getSensorType(); 
 
-        // Modern syntax for nested objects
         JsonObject metaObj = doc["meta"].to<JsonObject>();
         device->populateMeta(metaObj);
 
