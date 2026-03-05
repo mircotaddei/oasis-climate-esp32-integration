@@ -13,6 +13,7 @@ enum LedState {
     LED_BLINK_2, // 2 blinks, pause (Claiming)
     LED_BLINK_3, // 3 blinks, pause (Failsafe/Offline)
     LED_BLINK_4, // 4 blinks, pause (Captive Portal)
+    LED_BLINK_5, // 5 blinks, pause (Recovery Mode)
     LED_FAST_BLINK // Continuous fast blink (Provisioning)
 };
 

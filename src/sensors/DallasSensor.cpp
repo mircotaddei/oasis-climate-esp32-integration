@@ -2,7 +2,7 @@
 #include "../managers/ConfigManager.h" 
 
 
-// --- CONSTRUCTOR ------------------------------------------------------------
+// --- CONSTRUCTOR & DESTRUCTOR ------------------------------------------------
 
 DallasSensor::DallasSensor(int pin) {
     _pin = pin;
@@ -16,15 +16,23 @@ DallasSensor::DallasSensor(int pin) {
     _isConnected = false; 
     _reconnectMillis = 0; 
     
-    _offset = 0.0;
+    // Load Defaults
+    _offset = DEFAULT_DALLAS_OFFSET;
+    _alpha = DEFAULT_DALLAS_ALPHA;
+    
     _errorCount = 0;
     _filteredTemp = NAN;
     _lastRawTemp = NAN;
     _consecutiveOutliers = 0;
 }
 
+DallasSensor::~DallasSensor() {
+    if (_oneWire) delete _oneWire;
+    if (_sensors) delete _sensors;
+}
 
-// --- BEGIN ------------------------------------------------------------------
+
+// --- BEGIN -------------------------------------------------------------------
 
 void DallasSensor::begin() {
     if (_oneWire) delete _oneWire;
@@ -55,46 +63,12 @@ void DallasSensor::begin() {
 }
 
 
-// --- FILTER LOGIC (ANTI-SPIKE & EMA) ----------------------------------------
-
-void DallasSensor::applyFilter(float rawTemp) {
-    // 1. First valid reading initialization
-    if (isnan(_filteredTemp)) {
-        _filteredTemp = rawTemp;
-        _lastRawTemp = rawTemp;
-        _consecutiveOutliers = 0;
-        return;
-    }
-
-    // 2. Outlier Rejection (Spike Filter)
-    float diff = abs(rawTemp - _lastRawTemp);
-    if (diff > MAX_TEMP_JUMP) {
-        _consecutiveOutliers++;
-        DEBUG_PRINTLN("[SENSOR] WARNING: Temp spike detected (", rawTemp, " C). Ignoring.");
-        
-        if (_consecutiveOutliers >= MAX_OUTLIERS) {
-            DEBUG_PRINTLN("[SENSOR] Spike persisted. Accepting new baseline.");
-            _filteredTemp = rawTemp; // Reset filter to new reality
-            _lastRawTemp = rawTemp;
-            _consecutiveOutliers = 0;
-        }
-        return; // Ignore this reading for the filter
-    }
-
-    // 3. Exponential Moving Average (Smoothing)
-    _consecutiveOutliers = 0;
-    _lastRawTemp = rawTemp;
-    _filteredTemp = (rawTemp * EMA_ALPHA) + (_filteredTemp * (1.0 - EMA_ALPHA));
-}
-
-
-// --- UPDATE -----------------------------------------------------------------
+// --- UPDATE ------------------------------------------------------------------
 
 void DallasSensor::update() {
     if (_id[0] == '\0' || !_isActive) return; 
 
     unsigned long currentMillis = millis();
-    
     unsigned long pollInterval = isnan(_filteredTemp) ? 2000 : 10000;
 
     if (!_requestPending && (currentMillis - _lastRequestMillis > pollInterval || _lastRequestMillis == 0)) {
@@ -106,21 +80,20 @@ void DallasSensor::update() {
     if (_requestPending && (currentMillis - _lastRequestMillis > 1000)) {
         float tempC = _sensors->getTempC(_deviceAddress);
         
-        if (tempC != DEVICE_DISCONNECTED_C && tempC != 85.0) { // 85.0 is a common power-on error value
+        if (tempC != DEVICE_DISCONNECTED_C && tempC != 85.0) { 
             if (!_isConnected) {
                 DEBUG_PRINTLN("[SENSOR] ", _id, " RECONNECTED! Starting warmup...");
                 _isConnected = true;
                 _reconnectMillis = currentMillis; 
-                _filteredTemp = NAN; // Reset filter on reconnect
+                _filteredTemp = NAN; 
             }
             
-            // Only apply filter if warmup is complete
             if (millis() - _reconnectMillis >= getWarmupTimeMs()) {
                 applyFilter(tempC);
             }
             
         } else {
-            _errorCount++; // Increment diagnostic counter
+            _errorCount++; 
             if (_isConnected) {
                 DEBUG_PRINTLN("[SENSOR] ERROR: ", _id, " DISCONNECTED or CRC FAIL!");
                 _isConnected = false;
@@ -132,102 +105,74 @@ void DallasSensor::update() {
 }
 
 
-// --- GET WARMUP TIME --------------------------------------------------------
+// --- FILTER LOGIC (ANTI-SPIKE & EMA) ----------------------------------------
 
-unsigned long DallasSensor::getWarmupTimeMs() {
-    return 2000; 
+void DallasSensor::applyFilter(float rawTemp) {
+    if (isnan(_filteredTemp)) {
+        _filteredTemp = rawTemp;
+        _lastRawTemp = rawTemp;
+        _consecutiveOutliers = 0;
+        return;
+    }
+
+    float diff = abs(rawTemp - _lastRawTemp);
+    if (diff > MAX_TEMP_JUMP) {
+        _consecutiveOutliers++;
+        if (_consecutiveOutliers >= MAX_OUTLIERS) {
+            _filteredTemp = rawTemp; 
+            _lastRawTemp = rawTemp;
+            _consecutiveOutliers = 0;
+        }
+        return; 
+    }
+
+    _consecutiveOutliers = 0;
+    _lastRawTemp = rawTemp;
+    _filteredTemp = (rawTemp * _alpha) + (_filteredTemp * (1.0 - _alpha));
 }
 
 
-// --- GET TEMPERATURE --------------------------------------------------------
+// --- META CONFIGURATION ------------------------------------------------------
+
+void DallasSensor::populateMeta(JsonObject& meta) const {
+    meta["pin"] = _pin;
+    meta["offset"] = _offset;
+    meta["alpha"] = _alpha;
+}
+
+void DallasSensor::applyMeta(JsonObjectConst meta) {
+    if (meta["offset"].is<float>()) {
+        _offset = meta["offset"].as<float>();
+    }
+    if (meta["alpha"].is<float>()) {
+        _alpha = meta["alpha"].as<float>();
+        if (_alpha < 0.01) _alpha = 0.01;
+        if (_alpha > 1.0) _alpha = 1.0;
+    }
+    DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Offset: ", _offset, " Alpha: ", _alpha);
+}
+
+
+// --- GETTERS & SETTERS -------------------------------------------------------
 
 float DallasSensor::getTemperature() {
     if (_isConnected && !isnan(_filteredTemp)) {
-        return _filteredTemp + _offset; // Apply calibration offset
+        return _filteredTemp + _offset; 
     }
     return NAN;
 }
 
+float DallasSensor::getHumidity() { return NAN; }
 
-// --- GET HUMIDITY -----------------------------------------------------------
+// FIX: Renamed getId to getLocalId to match OasisDevice interface
+const char* DallasSensor::getLocalId() const { return _id; }
 
-float DallasSensor::getHumidity() {
-    return NAN;
-}
-
-
-// --- GET ID -----------------------------------------------------------------
-
-const char* DallasSensor::getId() {
-    return _id;
-}
-
-
-// --- GET GLOBAL ID ----------------------------------------------------------
-
-const char* DallasSensor::getGlobalId() {
-    return _globalId;
-}
-
-
-// --- SET GLOBAL ID -----------------------------------------------------------
-
-void DallasSensor::setGlobalId(const char* globalId) {
-    strlcpy(_globalId, globalId, sizeof(_globalId));
-}
-
-
-// --- GET TYPE ----------------------------------------------------------------
-
-SensorType DallasSensor::getType() {
-    return SENSOR_TYPE_DALLAS;
-}
-
-
-// --- IS ACTIVE ---------------------------------------------------------------
-
-bool DallasSensor::isActive() {
-    return _isActive;
-}
-
-
-// --- SET ACTIVE --------------------------------------------------------------
-
-void DallasSensor::setActive(bool state) {
-    _isActive = state;
-}
-
-
-// --- IS CONNECTED ------------------------------------------------------------
-
-bool DallasSensor::isConnected() {
-    return _isConnected;
-}
-
-
-// --- CALIBRATION & DIAGNOSTICS -----------------------------------------------
-
-void DallasSensor::setOffset(float offset) {
-    _offset = offset;
-}
-
-
-// --- GET OFFSET --------------------------------------------------------------
-
-float DallasSensor::getOffset() {
-    return _offset;
-}
-
-
-// --- GET ERROR COUNT ---------------------------------------------------------
-
-unsigned int DallasSensor::getErrorCount() {
-    return _errorCount;
-}
-
-
-// --- CLEAR ERROR COUNT -------------------------------------------------------
-
-void DallasSensor::clearErrorCount() {
-    _errorCount = 0;
-}
+const char* DallasSensor::getGlobalId() const { return _globalId; }
+void DallasSensor::setGlobalId(const char* globalId) { strlcpy(_globalId, globalId, sizeof(_globalId)); }
+OasisDeviceType DallasSensor::getType() const { return DEVICE_TYPE_SENSOR_DALLAS; }
+bool DallasSensor::isActive() const { return _isActive; }
+void DallasSensor::setActive(bool state) { _isActive = state; }
+bool DallasSensor::isConnected() const { return _isConnected; }
+unsigned long DallasSensor::getWarmupTimeMs() const { return 2000; }
+unsigned int DallasSensor::getErrorCount() const { return _errorCount; }
+void DallasSensor::clearErrorCount() { _errorCount = 0; }

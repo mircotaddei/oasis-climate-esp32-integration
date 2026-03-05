@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <WebServer.h>
-#include <DNSServer.h> // NEW: Include DNS Server
+#include <DNSServer.h>
 #include "ConfigManager.h"
 
 
@@ -14,8 +14,8 @@
 class NetworkManager {
 public:
     NetworkManager();
-    void connect(ConfigManager* config);
-    void startClaimingPortal(const char* claimCode);
+    void connect(ConfigManager* config, const char* prefix = "OASIS_INIT");
+    void startClaimingPortal(ConfigManager* config, const char* claimCode, const char* prefix);
     void handleClaimingPortal();
     void stopClaimingPortal();
 
@@ -25,7 +25,7 @@ private:
     bool _isPortalActive;
     
     void connectWokwi();
-    void connectPhysical(ConfigManager* config);
+    void connectPhysical(ConfigManager* config, const char* prefix);
     void handleRoot();
 };
 

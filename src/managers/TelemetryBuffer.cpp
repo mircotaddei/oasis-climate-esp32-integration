@@ -1,6 +1,6 @@
 #include "TelemetryBuffer.h"
-#include "TimeManager.h"
-#include "ConfigManager.h"
+#include "TimeManager.h" // Include TimeManager for conversion
+#include "ConfigManager.h" 
 
 
 // --- CONSTRUCTOR -------------------------------------------------------------
@@ -11,7 +11,7 @@ TelemetryBuffer::TelemetryBuffer(size_t capacity) {
 }
 
 
-// --- ADD ---------------------------------------------------------------------
+// --- ADD RECORD --------------------------------------------------------------
 
 void TelemetryBuffer::add(unsigned long timestamp, int sensorIndex, float value) {
     if (_buffer.size() >= _capacity) {
@@ -51,19 +51,24 @@ String TelemetryBuffer::getPayload(const char* deviceId, const HardwareManager* 
     doc["device_id"] = deviceId;
     JsonArray readings = doc["readings"].to<JsonArray>();
 
-    const std::vector<SensorDriver*>& sensors = hwManager->getSensors();
+    // FIX: Use getAllDevices() instead of getSensors()
+    const std::vector<OasisDevice*>& devices = hwManager->getAllDevices();
 
     for (const auto& record : _buffer) {
-        if (record.sensorIndex >= 0 && record.sensorIndex < sensors.size()) {
-            SensorDriver* sensor = sensors[record.sensorIndex];
+        if (record.sensorIndex >= 0 && record.sensorIndex < devices.size()) {
+            OasisDevice* device = devices[record.sensorIndex];
             
-            JsonObject r = readings.add<JsonObject>();
-            r["device_id"] = sensor->getGlobalId();
-            r["value"] = record.value;
-            
-            // NEW: Convert epoch to ISO 8601 string
-            if (record.timestamp > 1000000000) { 
-                r["timestamp"] = TimeManager::epochToISO8601(record.timestamp);
+            // FIX: Check type and cast to SensorDriver
+            if (device->getType() == DEVICE_TYPE_SENSOR_DALLAS || device->getType() == DEVICE_TYPE_SENSOR_DHT) {
+                SensorDriver* sensor = static_cast<SensorDriver*>(device);
+                
+                JsonObject r = readings.add<JsonObject>();
+                r["device_id"] = sensor->getGlobalId();
+                r["value"] = record.value;
+                
+                if (record.timestamp > 1000000000) { 
+                    r["timestamp"] = TimeManager::epochToISO8601(record.timestamp);
+                }
             }
         }
     }

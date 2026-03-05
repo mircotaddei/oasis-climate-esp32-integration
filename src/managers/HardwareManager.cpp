@@ -1,12 +1,26 @@
 #include "HardwareManager.h"
-#include "../sensors/DallasSensor.h"
+
+// Conditionally include drivers based on build_config.h
+#ifdef ENABLE_BOILER_RELAY
+    #include "../actuators/RelayDriver.h"
+#endif
+#ifdef ENABLE_DALLAS_SENSOR
+    #include "../sensors/DallasSensor.h"
+#endif
 
 
-// --- CONSTRUCTOR -------------------------------------------------------------
+// --- CONSTRUCTOR & DESTRUCTOR ------------------------------------------------
 
 HardwareManager::HardwareManager() {
-    _relay = nullptr;
     _config = nullptr;
+    _primaryRelay = nullptr;
+}
+
+HardwareManager::~HardwareManager() {
+    for (auto device : _devices) {
+        delete device;
+    }
+    _devices.clear();
 }
 
 
@@ -14,88 +28,114 @@ HardwareManager::HardwareManager() {
 
 void HardwareManager::begin(ConfigManager* config) {
     _config = config;
-    
-    // 1. Initialize Relay
-    int relayPin = config->getPin("relay", 5); // Default GPIO 5
-    _relay = new RelayDriver(relayPin);
-    _relay->begin();
-    _relay->setSafetyTimeout(30 * 60 * 1000); // 30 min default safety timeout
-    
-    DEBUG_PRINTLN("HardwareManager: Relay initialized on pin ", relayPin);
+    DEBUG_PRINTLN("--- [HW] Initializing Hardware Modules ---");
 
-    // 2. Initialize Sensors (Dallas DS18B20)
-    int oneWirePin = config->getPin("onewire_bus", 4); // Default GPIO 4
-    DallasSensor* dallas = new DallasSensor(oneWirePin);
-    dallas->begin();
-    
-    // Load saved state (Global ID, Active status, Offset) from NVS
-    if (strlen(dallas->getId()) > 0) {
-        char savedGlobalId[64] = "";
-        bool savedIsActive = false;
-        float savedOffset = 0.0;
+    #ifdef ENABLE_BOILER_RELAY
+        RelayDriver* relay = new RelayDriver(); 
+        _devices.push_back(relay);
+        _primaryRelay = relay;
+        DEBUG_PRINTLN("[HW] Boiler Relay module enabled.");
+    #endif
+
+    #ifdef ENABLE_DALLAS_SENSOR
+        DallasSensor* dallas = new DallasSensor(); 
+        _devices.push_back(dallas);
+        DEBUG_PRINTLN("[HW] Dallas 1-Wire module enabled.");
+    #endif
+
+    for (auto device : _devices) {
+        device->begin();
         
-        if (config->loadSensorState(dallas->getId(), savedGlobalId, sizeof(savedGlobalId), &savedIsActive, &savedOffset)) {
-            dallas->setGlobalId(savedGlobalId);
-            dallas->setActive(savedIsActive);
-            dallas->setOffset(savedOffset);
-            DEBUG_PRINTLN("HardwareManager: Restored sensor state. GlobalID: ", savedGlobalId, " Active: ", savedIsActive, " Offset: ", savedOffset);
+        if (strlen(device->getLocalId()) > 0) {
+            char savedGlobalId[64] = "";
+            bool savedIsActive = false;
+            
+            // Modern syntax for temporary JsonDocument
+            JsonDocument tempMetaDoc;
+            JsonObject metaObj = tempMetaDoc.to<JsonObject>();
+            
+            if (config->loadDeviceState(device->getLocalId(), savedGlobalId, sizeof(savedGlobalId), &savedIsActive, metaObj)) {
+                device->setGlobalId(savedGlobalId);
+                device->setActive(savedIsActive);
+                device->applyMeta(metaObj); 
+                DEBUG_PRINTLN("[HW] Restored state for: ", device->getLocalId());
+            }
         }
     }
-    
-    _sensors.push_back(dallas);
-    
-    DEBUG_PRINTLN("HardwareManager: OneWire bus initialized on pin ", oneWirePin);
 
-    // Trigger the first async read immediately so data is ready sooner
     update(); 
+    DEBUG_PRINTLN("--- [HW] Initialization Complete ---");
 }
 
 
 // --- UPDATE ------------------------------------------------------------------
 
 void HardwareManager::update() {
-    // Update Relay Safety Logic
-    if (_relay) _relay->update();
-
-    // Update Sensors (Async Read)
-    for (auto sensor : _sensors) {
-        sensor->update();
+    for (auto device : _devices) {
+        device->update();
     }
+}
+
+
+// --- GET ALL DEVICES ---------------------------------------------------------
+
+const std::vector<OasisDevice*>& HardwareManager::getAllDevices() const {
+    return _devices;
+}
+
+
+// --- GET DEVICE BY LOCAL ID --------------------------------------------------
+
+OasisDevice* HardwareManager::getDeviceByLocalId(const char* localId) const {
+    for (auto device : _devices) {
+        if (strcmp(device->getLocalId(), localId) == 0) {
+            return device;
+        }
+    }
+    return nullptr;
+}
+
+
+// --- GET DEVICE BY GLOBAL ID -------------------------------------------------
+
+OasisDevice* HardwareManager::getDeviceByGlobalId(const char* globalId) const {
+    for (auto device : _devices) {
+        if (strcmp(device->getGlobalId(), globalId) == 0) {
+            return device;
+        }
+    }
+    return nullptr;
 }
 
 
 // --- GET TEMPERATURE ---------------------------------------------------------
 
 float HardwareManager::getTemperature() {
-    // Simple strategy: return the first valid reading found
-    for (auto sensor : _sensors) {
-        float t = sensor->getTemperature();
-        if (!isnan(t)) return t;
+    // Iterate through all devices, find the first active Dallas sensor
+    for (auto device : _devices) {
+        if (device->getType() == DEVICE_TYPE_SENSOR_DALLAS && device->isActive()) {
+            SensorDriver* sensor = static_cast<SensorDriver*>(device);
+            float t = sensor->getTemperature();
+            if (!isnan(t)) return t;
+        }
     }
     return NAN;
 }
 
 
-// --- GET RELAY STATE ---------------------------------------------------------
+// --- SET RELAY MODULATION ----------------------------------------------------
 
-bool HardwareManager::getRelayState() {
-    if (_relay) return _relay->isOn();
-    return false;
-}
-
-
-// --- SET RELAY STATE ---------------------------------------------------------
-
-void HardwareManager::setRelayState(bool state) {
-    if (_relay) {
-        if (state) _relay->turnOn();
-        else _relay->turnOff();
+void HardwareManager::setRelayModulation(float level) {
+    if (_primaryRelay) {
+        _primaryRelay->setModulation(level);
     }
 }
 
 
-// --- GET SENSORS -------------------------------------------------------------
-
-const std::vector<SensorDriver*>& HardwareManager::getSensors() const {
-    return _sensors;
+// --- GET RELAY MODULATION ----------------------------------------------------
+float HardwareManager::getRelayModulation() const {
+    if (_primaryRelay) {
+        return _primaryRelay->getCurrentState();
+    }
+    return 0.0;
 }

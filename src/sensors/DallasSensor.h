@@ -5,36 +5,40 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+// --- HARDWARE DEFAULTS -------------------------------------------------------
 
-// --- DALLAS SENSOR -----------------------------------------------------------
+#define DEFAULT_ONEWIRE_PIN 4
+
+// --- SOFTWARE DEFAULTS -------------------------------------------------------
+
+#define DEFAULT_DALLAS_OFFSET 0.0
+#define DEFAULT_DALLAS_ALPHA 0.2
+#define MAX_TEMP_JUMP 5.0
+#define MAX_OUTLIERS 3
 
 class DallasSensor : public SensorDriver {
 public:
-    DallasSensor(int pin);
+    DallasSensor(int pin = DEFAULT_ONEWIRE_PIN);
+    ~DallasSensor() override;
 
+    // OasisDevice Interface
     void begin() override;
     void update() override;
+    OasisDeviceType getType() const override;
+    const char* getLocalId() const override;
+    const char* getGlobalId() const override;
+    void setGlobalId(const char* globalId) override;
+    bool isActive() const override;
+    void setActive(bool state) override;
+    bool isConnected() const override;
+    void populateMeta(JsonObject& meta) const override;
+    void applyMeta(JsonObjectConst meta) override;
 
+    // SensorDriver Interface
     float getTemperature() override;
     float getHumidity() override;
-    
-    const char* getId() override;
-    const char* getGlobalId() override;
-    void setGlobalId(const char* globalId) override;
-    
-    SensorType getType() override;
-
-    bool isActive() override;
-    void setActive(bool state) override;
-
-    bool isConnected() override;
-
-    unsigned long getWarmupTimeMs() override;
-
-    void setOffset(float offset) override;
-    float getOffset() override;
-
-    unsigned int getErrorCount() override;
+    unsigned long getWarmupTimeMs() const override;
+    unsigned int getErrorCount() const override;
     void clearErrorCount() override;
 
 private:
@@ -42,29 +46,27 @@ private:
     OneWire* _oneWire;
     DallasTemperature* _sensors;
     DeviceAddress _deviceAddress;
+    
     char _id[24]; 
     char _globalId[64]; 
-    float _lastTemp;
+    
     unsigned long _lastRequestMillis;
     bool _requestPending;
     bool _isActive;
     bool _isConnected;
-    unsigned long _reconnectMillis;
+    unsigned long _reconnectMillis; 
 
-    // Filtering and Calibration variables
+    // Software Configuration (Meta)
     float _offset;
-    unsigned int _errorCount;
+    float _alpha; // Smoothing factor
     
+    // Internal State
+    unsigned int _errorCount;
     float _filteredTemp;
     float _lastRawTemp;
     int _consecutiveOutliers;
-    
-    // Filter constants
-    const float EMA_ALPHA = 0.2; // Smoothing factor (0.0 - 1.0). Lower is smoother.
-    const float MAX_TEMP_JUMP = 5.0; // Max allowed jump in °C between readings
-    const int MAX_OUTLIERS = 3; // Accept jump after this many consecutive outliers
 
     void applyFilter(float rawTemp);
 };
 
-#endif
+#endif // DALLAS_SENSOR_H

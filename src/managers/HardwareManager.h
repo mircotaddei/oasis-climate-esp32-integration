@@ -3,29 +3,38 @@
 
 #include <Arduino.h>
 #include <vector>
+#include "../build_config.h"
 #include "ConfigManager.h"
+#include "../devices/OasisDevice.h"
 #include "../sensors/SensorDriver.h"
-#include "../actuators/RelayDriver.h"
-
+#include "../actuators/ActuatorDriver.h"
 
 // --- HARDWARE MANAGER --------------------------------------------------------
 
 class HardwareManager {
 public:
     HardwareManager();
+    ~HardwareManager();
+    
     void begin(ConfigManager* config);
     void update();
     
-    // Accessors
-    float getTemperature(); // Returns average or primary sensor temp
-    bool getRelayState();
-    void setRelayState(bool state);
-    const std::vector<SensorDriver*>& getSensors() const;
+    // Unified Device Access
+    const std::vector<OasisDevice*>& getAllDevices() const;
+    OasisDevice* getDeviceByLocalId(const char* localId) const;
+    OasisDevice* getDeviceByGlobalId(const char* globalId) const;
+
+    // Specific Accessors (Convenience methods for main loop)
+    float getTemperature(); 
+    void setRelayModulation(float level);
+    float getRelayModulation() const;
 
 private:
-    std::vector<SensorDriver*> _sensors;
-    RelayDriver* _relay;
+    std::vector<OasisDevice*> _devices;
     ConfigManager* _config;
+    
+    // Pointers to specific primary devices for quick access
+    ActuatorDriver* _primaryRelay;
 };
 
-#endif
+#endif // HARDWARE_MANAGER_H

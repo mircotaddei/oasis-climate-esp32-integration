@@ -3,18 +3,17 @@
 
 #include <Arduino.h>
 
-
-// --- LOGGER ------------------------------------------------------------------
-
 namespace Logger {
 
     // Function pointer type for time provider
     typedef String (*TimeProvider)();
     
-    // Internal pointer to the callback
-    static TimeProvider _timeProvider = nullptr;
+    // External declaration (defined in main.cpp)
+    extern TimeProvider _timeProvider;
+    
+    // Helper function (defined in main.cpp)
+    void printTimestamp();
 
-    // Setup function to inject the time provider
     inline void setTimeProvider(TimeProvider provider) {
         _timeProvider = provider;
     }
@@ -35,11 +34,7 @@ namespace Logger {
     template<typename... Args>
     inline void println(Args... args) {
         Serial.print("[");
-        if (_timeProvider) {
-            Serial.print(_timeProvider());
-        } else {
-            Serial.print(millis());
-        }
+        printTimestamp();
         Serial.print("] ");
         printArgs(args...);
     }

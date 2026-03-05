@@ -1,5 +1,5 @@
 #include "ConfigManager.h"
-#include <HTTPClient.h> // Needed for NVS Sync
+#include <HTTPClient.h> 
 
 
 // --- CONSTRUCTOR -------------------------------------------------------------
@@ -11,10 +11,10 @@ ConfigManager::ConfigManager() {
     localId[0] = '\0';
     deviceId[0] = '\0';
     apiFailureCount = 0;
+    cloudTimeoutCount = 0;
     
-    // Default timings (Safe Production Defaults)
-    claimIntervalMs = 10000;       // 10 seconds
-    telemetryIntervalMs = 900000;  // 15 minutes
+    claimIntervalMs = 10000;       
+    telemetryIntervalMs = 900000;  
 }
 
 
@@ -29,7 +29,6 @@ void ConfigManager::loadMacAddress() {
     }
     strlcpy(macAddress, mac.c_str(), sizeof(macAddress));
     
-    // Create localId (MAC without colons)
     String local = mac;
     local.replace(":", "");
     strlcpy(localId, local.c_str(), sizeof(localId));
@@ -43,42 +42,34 @@ void ConfigManager::begin() {
     loadMacAddress();
 
     #ifdef WOKWI_SIMULATION
-        // In Wokwi, sync NVS from cloud to simulate persistence
         syncNvsFromCloud();
     #endif
 
-    // Load Identity
     String savedApiKey = preferences.getString("api_key", "");
     strlcpy(apiKey, savedApiKey.c_str(), sizeof(apiKey));
     
     String savedDeviceId = preferences.getString("device_id", "");
     strlcpy(deviceId, savedDeviceId.c_str(), sizeof(deviceId));
 
-    // Load API URL
     String savedApiUrl = preferences.getString("api_url", "");
     if (savedApiUrl.length() == 0 && strlen(FALLBACK_API_URL) > 0) {
         savedApiUrl = FALLBACK_API_URL;
     }
     strlcpy(apiUrl, savedApiUrl.c_str(), sizeof(apiUrl));
 
-    // Load Dynamic Config
     String savedConfig = preferences.getString("device_config", "{}");
     deserializeJson(deviceConfig, savedConfig);
 
-    // Wokwi / Debug Overrides
     #ifdef WOKWI_SIMULATION
         strlcpy(apiUrl, FALLBACK_API_URL, sizeof(apiUrl));
         
-        // Aggressive timings for development
-        claimIntervalMs = 5000;      // 5 seconds
-        telemetryIntervalMs = 10000; // 10 seconds
+        claimIntervalMs = 5000;      
+        telemetryIntervalMs = 10000; 
 
         DEBUG_PRINTLN("--- [CONFIG] Wokwi Mode Active ---");
         DEBUG_PRINTLN("MAC Address: ", macAddress);
         DEBUG_PRINTLN("Local ID: ", localId);
         DEBUG_PRINTLN("API URL: ", apiUrl);
-        DEBUG_PRINTLN("Claim Interval: ", claimIntervalMs);
-        DEBUG_PRINTLN("Telemetry Interval: ", telemetryIntervalMs);
         DEBUG_PRINTLN("----------------------------------");
 
         #ifdef FORCE_UNCLAIMED
@@ -102,7 +93,6 @@ bool ConfigManager::isClaimed() {
 // --- IS PROVISIONED ----------------------------------------------------------
 
 bool ConfigManager::isProvisioned() {
-    // A device is provisioned if it has a config object with at least one key
     return deviceConfig.size() > 0;
 }
 
@@ -110,6 +100,12 @@ bool ConfigManager::isProvisioned() {
 // --- SAVE IDENTITY -----------------------------------------------------------
 
 void ConfigManager::saveIdentity(const char* newApiKey, const char* newDeviceId) {
+    // EMERGENCY FIX: Protect against null pointers
+    if (newApiKey == nullptr || newDeviceId == nullptr) {
+        DEBUG_PRINTLN("[CONFIG] ERROR: Attempted to save null identity!");
+        return;
+    }
+
     strlcpy(apiKey, newApiKey, sizeof(apiKey));
     preferences.putString("api_key", apiKey);
     
@@ -120,6 +116,20 @@ void ConfigManager::saveIdentity(const char* newApiKey, const char* newDeviceId)
 
     #ifdef WOKWI_SIMULATION
         syncNvsToCloud();
+    #endif
+}
+
+
+// --- CLEAR IDENTITY ----------------------------------------------------------
+
+void ConfigManager::invalidateApiKey() {
+    DEBUG_PRINTLN("[CONFIG] Invalidating API Key (keeping Device ID)...");
+    
+    preferences.remove("api_key");
+    apiKey[0] = '\0';
+    
+    #ifdef WOKWI_SIMULATION
+        syncNvsToCloud(); 
     #endif
 }
 
@@ -142,76 +152,21 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
 }
 
 
-// --- SAVE SENSOR STATE -------------------------------------------------------
-
-void ConfigManager::saveSensorState(const char* localId, const char* globalId, bool isActive, float offset) {
-    // Ensure the sensors_map object exists
-    if (!deviceConfig["sensors_map"].is<JsonObject>()) {
-        deviceConfig["sensors_map"] = deviceConfig.createNestedObject("sensors_map");
-    }
-    
-    JsonObject sensorObj = deviceConfig["sensors_map"][localId].to<JsonObject>();
-    sensorObj["global_id"] = globalId;
-    sensorObj["is_active"] = isActive;
-    sensorObj["offset"] = offset; // NEW
-
-    // Serialize and save to NVS
-    String configStr;
-    serializeJson(deviceConfig, configStr);
-    preferences.putString("device_config", configStr);
-    
-    DEBUG_PRINTLN("[CONFIG] Saved state for sensor ", localId);
-
-    #ifdef WOKWI_SIMULATION
-        syncNvsToCloud();
-    #endif
-}
-
-
-// --- LOAD SENSOR STATE -------------------------------------------------------
-
-bool ConfigManager::loadSensorState(const char* localId, char* outGlobalId, size_t maxLen, bool* outIsActive, float* outOffset) {
-    if (deviceConfig["sensors_map"][localId].is<JsonObject>()) {
-        JsonObject sensorObj = deviceConfig["sensors_map"][localId];
-        
-        if (sensorObj["global_id"].is<const char*>()) {
-            strlcpy(outGlobalId, sensorObj["global_id"].as<const char*>(), maxLen);
-        }
-        
-        if (sensorObj["is_active"].is<bool>()) {
-            *outIsActive = sensorObj["is_active"].as<bool>();
-        }
-        
-        if (sensorObj["offset"].is<float>()) {
-            *outOffset = sensorObj["offset"].as<float>();
-        } else {
-            *outOffset = 0.0; // Default if not present
-        }
-        
-        return true;
-    }
-    return false;
-}
-
-
 // --- FACTORY RESET -----------------------------------------------------------
 
 void ConfigManager::factoryReset() {
     DEBUG_PRINTLN("Performing Factory Reset...");
     
-    // 1. Clear Application NVS
     preferences.clear();
     apiKey[0] = '\0';
     deviceId[0] = '\0';
     deviceConfig.clear();
 
-    // 2. Clear WiFi Credentials (System NVS)
-    // WiFi.disconnect(wifiOff, eraseAp)
     WiFi.disconnect(true, true); 
     DEBUG_PRINTLN("WiFi credentials erased.");
 
     #ifdef WOKWI_SIMULATION
-        syncNvsToCloud(); // Sync the cleared state to the cloud
+        syncNvsToCloud(); 
     #endif
 }
 
@@ -226,8 +181,58 @@ int ConfigManager::getPin(const char* function, int defaultValue) {
 }
 
 
+// --- SAVE DEVICE STATE -------------------------------------------------------
+
+void ConfigManager::saveDeviceState(const char* localId, const char* globalId, bool isActive, JsonObjectConst meta) {
+    // Modern syntax for creating nested objects
+    if (!deviceConfig["devices_map"].is<JsonObject>()) {
+        deviceConfig["devices_map"].to<JsonObject>();
+    }
+    
+    JsonObject deviceObj = deviceConfig["devices_map"][localId].to<JsonObject>();
+    deviceObj["global_id"] = globalId;
+    deviceObj["is_active"] = isActive;
+    
+    deviceObj["meta"] = meta;
+
+    String configStr;
+    serializeJson(deviceConfig, configStr);
+    preferences.putString("device_config", configStr);
+    
+    DEBUG_PRINTLN("[CONFIG] Saved state for device ", localId);
+
+    #ifdef WOKWI_SIMULATION
+        syncNvsToCloud();
+    #endif
+}
+
+
+// --- LOAD DEVICE STATE -------------------------------------------------------
+
+bool ConfigManager::loadDeviceState(const char* localId, char* outGlobalId, size_t maxLen, bool* outIsActive, JsonObject& outMeta) {
+    if (deviceConfig["devices_map"][localId].is<JsonObject>()) {
+        JsonObject deviceObj = deviceConfig["devices_map"][localId];
+        
+        if (deviceObj["global_id"].is<const char*>()) {
+            strlcpy(outGlobalId, deviceObj["global_id"].as<const char*>(), maxLen);
+        }
+        
+        if (deviceObj["is_active"].is<bool>()) {
+            *outIsActive = deviceObj["is_active"].as<bool>();
+        }
+        
+        if (deviceObj["meta"].is<JsonObject>()) {
+            outMeta.set(deviceObj["meta"]);
+        }
+        
+        return true;
+    }
+    return false;
+}
+
+
 #ifdef WOKWI_SIMULATION
-// --- SYNC NVS FROM CLOUD ----------------------------------------------------
+// --- SYNC NVS FROM CLOUD -----------------------------------------------------
 
 void ConfigManager::syncNvsFromCloud() {
     if (WiFi.status() != WL_CONNECTED) {
@@ -265,14 +270,13 @@ void ConfigManager::syncNvsFromCloud() {
         }
     } else {
         DEBUG_PRINTLN("Failed to fetch NVS state, HTTP: ", httpCode);
-        DEBUG_PRINTLN("[NVS SYNC] Doing nothing on error.");
     }
     http.end();
     DEBUG_PRINTLN("--- [NVS SYNC] Fetch END ---");
 }
 
 
-// --- SYNC NVS TO CLOUD ------------------------------------------------------
+// --- SYNC NVS TO CLOUD -------------------------------------------------------
 
 void ConfigManager::syncNvsToCloud() {
     if (WiFi.status() != WL_CONNECTED) {

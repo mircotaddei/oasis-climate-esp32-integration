@@ -61,13 +61,14 @@ void LedManager::update() {
         return;
     }
 
-    // Logic for numbered blinks (1, 2, 3, 4)
+    // Logic for numbered blinks (1, 2, 3, 4, 5)
     int targetBlinks = 0;
     switch (_currentState) {
         case LED_BLINK_1: targetBlinks = 1; break;
         case LED_BLINK_2: targetBlinks = 2; break;
         case LED_BLINK_3: targetBlinks = 3; break;
         case LED_BLINK_4: targetBlinks = 4; break;
+        case LED_BLINK_5: targetBlinks = 5; break;
         default: break;
     }
 

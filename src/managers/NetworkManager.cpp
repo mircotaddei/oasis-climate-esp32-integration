@@ -24,11 +24,11 @@ NetworkManager::NetworkManager() {
 
 // --- CONNECT -----------------------------------------------------------------
 
-void NetworkManager::connect(ConfigManager* config) {
+void NetworkManager::connect(ConfigManager* config, const char* prefix) {
     #ifdef WOKWI_SIMULATION
         connectWokwi();
     #else
-        connectPhysical(config);
+        connectPhysical(config, prefix);
     #endif
 }
 
@@ -58,8 +58,7 @@ void NetworkManager::connectWokwi() {
 
 // --- CONNECT PHYSICAL --------------------------------------------------------
 
-void NetworkManager::connectPhysical(ConfigManager* config) {
-    // Attempt fallback connection first if no credentials saved
+void NetworkManager::connectPhysical(ConfigManager* config, const char* prefix) {
     if (WiFi.SSID() == "" && strlen(FALLBACK_SSID) > 0) {
         DEBUG_PRINTLN("Trying fallback WiFi credentials...");
         WiFi.begin(FALLBACK_SSID, FALLBACK_PASS);
@@ -72,15 +71,13 @@ void NetworkManager::connectPhysical(ConfigManager* config) {
         DEBUG_PRINTLN("");
     }
 
-    // Setup WiFiManager (the external library)
     WiFiManager wifiManager;
     wifiManager.setSaveConfigCallback(saveConfigCallback);
 
-    // Start Connection/Portal
-    String apName = "OASIS_" + String(config->macAddress).substring(12);
+    // Dynamic AP Name: PREFIX_XXXXXX
+    String apName = String(prefix) + "_" + String(config->macAddress).substring(12);
     apName.replace(":", "");
 
-    // Set timeout to avoid blocking forever if WiFi is configured but AP not found
     wifiManager.setConfigPortalTimeout(180); 
 
     if (!wifiManager.autoConnect(apName.c_str())) {
@@ -91,41 +88,41 @@ void NetworkManager::connectPhysical(ConfigManager* config) {
 
     DEBUG_PRINTLN("Connected to WiFi!");
     
-    // FIX: If not claimed yet, ensure AP stays ON for the claiming portal
     if (!config->isClaimed()) {
-        DEBUG_PRINTLN("Device not claimed. Enabling AP+STA mode for Claiming Portal.");
+        DEBUG_PRINTLN("Device not claimed. Enabling AP+STA mode.");
         WiFi.mode(WIFI_AP_STA);
-        WiFi.softAP(apName.c_str()); // Restart AP with same name
+        WiFi.softAP(apName.c_str()); 
     }
 }
 
 
 // --- START CLAIMING PORTAL ---------------------------------------------------
 
-void NetworkManager::startClaimingPortal(const char* claimCode) {
-    if (_isPortalActive) return;
+void NetworkManager::startClaimingPortal(ConfigManager* config, const char* claimCode, const char* prefix) {
 
     globalClaimCode = String(claimCode);
     
-    // 1. Start DNS Server to hijack all requests
+    if (_isPortalActive) {
+        DEBUG_PRINTLN("Portal already active. Updated Claim Code: ", globalClaimCode);
+        return; // Skip restarting server/AP
+    }
+
+    String apName = String(prefix) + "_" + String(config->macAddress).substring(12);
+    apName.replace(":", "");
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(apName.c_str());
+
     _dnsServer = new DNSServer();
     _dnsServer->setErrorReplyCode(DNSReplyCode::NoError);
-    _dnsServer->start(53, "*", WiFi.softAPIP()); // Redirect all to AP IP
+    _dnsServer->start(53, "*", WiFi.softAPIP());
 
-    // 2. Start Web Server
     _server = new WebServer(80);
-    _server->on("/", [this]() {
-        this->handleRoot();
-    });
-    // Catch-all handler for captive portal detection (Android/iOS checks)
-    _server->onNotFound([this]() {
-        this->handleRoot();
-    });
+    _server->on("/", [this]() { this->handleRoot(); });
+    _server->onNotFound([this]() { this->handleRoot(); });
     _server->begin();
     
     _isPortalActive = true;
-    DEBUG_PRINTLN("Claiming Portal Started (DNS + HTTP)");
-    DEBUG_PRINTLN("Access at: http://", WiFi.softAPIP());
+    DEBUG_PRINTLN("Portal Started: ", apName, " at ", WiFi.softAPIP().toString());
 }
 
 
@@ -173,10 +170,18 @@ void NetworkManager::handleRoot() {
     html += "<style>body{font-family:sans-serif;text-align:center;padding:20px;}h1{color:#007bff;}code{font-size:2em;background:#eee;padding:10px;display:block;margin:20px 0;}</style>";
     html += "</head><body>";
     html += "<h1>OASIS Climate</h1>";
-    html += "<p>Device Connected to WiFi!</p>";
-    html += "<p>Please go to your Dashboard and enter this code:</p>";
-    html += "<code>" + globalClaimCode + "</code>";
-    html += "<p>Waiting for claim...</p>";
+    
+    if (globalClaimCode == "RECOVERY") {
+        html += "<h2 style='color:red;'>Recovery Required</h2>";
+        html += "<p>This device is already linked to an account but has lost its credentials.</p>";
+        html += "<p>To recover, please log in to your Oasis Dashboard, select this device, and click <strong>'Reset Hardware Credentials'</strong>.</p>";
+    } else {
+        html += "<p>Device Connected to WiFi!</p>";
+        html += "<p>Please go to your Dashboard and enter this code:</p>";
+        html += "<code>" + globalClaimCode + "</code>";
+        html += "<p>Waiting for claim...</p>";
+    }
+    
     html += "</body></html>";
     
     _server->send(200, "text/html", html);

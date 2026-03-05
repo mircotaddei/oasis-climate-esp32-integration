@@ -4,19 +4,37 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include "managers/ConfigManager.h"
 #include <vector>
-#include "sensors/SensorDriver.h"
+#include "managers/ConfigManager.h"
+#include "managers/ScheduleManager.h"
+#include "devices/OasisDevice.h"
+
+
+// --- CLAIM STATUS ------------------------------------------------------------
+// Represents the status of the claiming process
+
+enum ClaimStatus {
+    CLAIM_SUCCESS,
+    CLAIM_PENDING,
+    CLAIM_RECOVERY_NEEDED,
+    CLAIM_ERROR
+};
+
 
 // --- API CLIENT --------------------------------------------------------------
 
 class ApiClient {
 public:
-    bool pollRegistration(ConfigManager* config, String* outClaimCode = nullptr);
+    ClaimStatus pollRegistration(ConfigManager* config, String* outClaimCode = nullptr);
     bool fetchConfig(ConfigManager* config);
-    void registerSensors(ConfigManager* config, const std::vector<SensorDriver*>& sensors);
-    void sendTelemetry(ConfigManager* config, String payload);
+    
+    void registerDevices(ConfigManager* config, const std::vector<OasisDevice*>& devices);
+    bool reportRecovery(ConfigManager* config);
+    
+    void sendTelemetry(ConfigManager* config, String payload); 
     bool pollActions(ConfigManager* config, float* outModulation);
+
+    bool fetchSchedule(ConfigManager* config, ScheduleManager* scheduleManager);
 };
 
 #endif
