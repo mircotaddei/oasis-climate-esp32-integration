@@ -140,11 +140,14 @@ const char* DallasSensor::getSensorType() const {
 }
 
 float DallasSensor::getTelemetryValue() const {
-    return getTemperature(); // Map to the specific method
+    return getTemperature();
 }
 
 
 // --- META CONFIGURATION ------------------------------------------------------
+
+
+// --- POPULATE META -----------------------------------------------------------
 
 void DallasSensor::populateMeta(JsonObject& meta) const {
     meta["pin"] = _pin;
@@ -153,18 +156,25 @@ void DallasSensor::populateMeta(JsonObject& meta) const {
     meta["sensor_type"] = _sensorType;
 }
 
+
+// --- APPLY META --------------------------------------------------------------
+
 void DallasSensor::applyMeta(JsonObjectConst meta) {
+
     if (meta["offset"].is<float>()) {
         _offset = meta["offset"].as<float>();
     }
+
     if (meta["alpha"].is<float>()) {
         _alpha = meta["alpha"].as<float>();
         if (_alpha < 0.01) _alpha = 0.01;
         if (_alpha > 1.0) _alpha = 1.0;
     }
+
     if (meta["sensor_type"].is<const char*>()) {
         strlcpy(_sensorType, meta["sensor_type"].as<const char*>(), sizeof(_sensorType));
     }
+
     DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Type: ", _sensorType, " Offset: ", _offset);
 }
 
@@ -179,10 +189,7 @@ float DallasSensor::getTemperature() const {
 }
 
 float DallasSensor::getHumidity() const { return NAN; }
-
-// FIX: Renamed getId to getLocalId to match OasisDevice interface
 const char* DallasSensor::getLocalId() const { return _id; }
-
 const char* DallasSensor::getGlobalId() const { return _globalId; }
 void DallasSensor::setGlobalId(const char* globalId) { strlcpy(_globalId, globalId, sizeof(_globalId)); }
 OasisDeviceType DallasSensor::getType() const { return DEVICE_TYPE_SENSOR_DALLAS; }
