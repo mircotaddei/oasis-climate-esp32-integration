@@ -14,21 +14,28 @@ enum OasisDeviceType {
     DEVICE_TYPE_ACTUATOR_OPENTHERM
 };
 
-// --- BASE INTERFACE ----------------------------------------------------------
+class OasisDevice; // Forward declaration
+
+// --- TELEMETRY CALLBACK ------------------------------------------------------
+
+typedef void (*TelemetryCallback)(OasisDevice* device, float value);
+
+
+// --- OASIS DEVICE ------------------------------------------------------------
 
 class OasisDevice {
 public:
+    OasisDevice() : _telemetryCallback(nullptr) {}
     virtual ~OasisDevice() {}
 
     // Lifecycle
     virtual void begin() = 0;
-    virtual void update() = 0; // Non-blocking loop
+    virtual void update() = 0; 
 
     // Identity
     virtual OasisDeviceType getType() const = 0;
-    virtual const char* getLocalId() const = 0; // Hardware ID (e.g., ROM code or Pin)
-    
-    virtual const char* getGlobalId() const = 0; // Backend ID
+    virtual const char* getLocalId() const = 0; 
+    virtual const char* getGlobalId() const = 0; 
     virtual void setGlobalId(const char* globalId) = 0;
 
     // State
@@ -37,17 +44,28 @@ public:
     virtual bool isConnected() const = 0;
 
     // Unified Telemetry Interface
-    // Returns the API string type (e.g., "temp_in", "relay_state")
     virtual const char* getSensorType() const = 0; 
-    // Returns the current value to be sent in the telemetry batch
     virtual float getTelemetryValue() const = 0; 
 
-
     // Configuration (Meta)
-    // Populates the JSON object with the device's current configuration
-    virtual void populateMeta(JsonObject& meta) const = 0;    
-    // Applies configuration received from the backend or NVS
+    virtual void populateMeta(JsonObject& meta) const = 0;
     virtual void applyMeta(JsonObjectConst meta) = 0;
+
+    // Event-Driven Telemetry
+    void setTelemetryCallback(TelemetryCallback cb) {
+        _telemetryCallback = cb;
+    }
+
+protected:
+    // Helper for child classes to emit events when their state changes
+    void emitTelemetry(float value) {
+        if (_telemetryCallback && isActive() && isConnected()) {
+            _telemetryCallback(this, value);
+        }
+    }
+
+private:
+    TelemetryCallback _telemetryCallback;
 };
 
 #endif // OASIS_DEVICE_H

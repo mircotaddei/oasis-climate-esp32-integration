@@ -21,12 +21,21 @@ enum ClaimStatus {
 };
 
 
+// --- API RESPONSE STRUCT ------------------------------------------------------
+
+struct ApiResponse {
+    int code;
+    String body;
+};
+
+
 // --- API CLIENT --------------------------------------------------------------
 
 class ApiClient {
 public:
     ClaimStatus pollRegistration(ConfigManager* config, String* outClaimCode = nullptr);
     bool fetchConfig(ConfigManager* config);
+    bool updateThermostatConfig(ConfigManager* config);
     
     void registerDevices(ConfigManager* config, const std::vector<OasisDevice*>& devices);
     bool reportRecovery(ConfigManager* config);
@@ -35,6 +44,9 @@ public:
     bool pollActions(ConfigManager* config, float* outModulation);
 
     bool fetchSchedule(ConfigManager* config, ScheduleManager* scheduleManager);
+
+private:
+    ApiResponse executeRequest(ConfigManager* config, const char* method, const char* path, String payload = "", bool authenticated = true);
 };
 
 #endif

@@ -78,6 +78,7 @@ float RelayDriver::getCurrentState() const {
 void RelayDriver::turnOn() {
     _state = true;
     digitalWrite(_pin, _activeHigh ? HIGH : LOW);
+    emitTelemetry(1.0);
 }
 
 
@@ -86,6 +87,7 @@ void RelayDriver::turnOn() {
 void RelayDriver::turnOff() {
     _state = false;
     digitalWrite(_pin, _activeHigh ? LOW : HIGH);
+    emitTelemetry(0.0);
 }
 
 

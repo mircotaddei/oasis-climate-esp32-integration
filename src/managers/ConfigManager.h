@@ -43,7 +43,7 @@
 
 #define FALLBACK_SSID ""
 #define FALLBACK_PASS ""
-#define FALLBACK_API_URL "http://192.168.10.103:8000/api/v1" 
+#define FALLBACK_API_URL "" 
 
 
 // --- CONFIG MANAGER CLASS ----------------------------------------------------
@@ -56,9 +56,28 @@ public:
     char localId[20]; 
     char deviceId[64]; 
     
-    unsigned long claimIntervalMs;
+    // --- TIMING CONFIGURATIONS (in Milliseconds) ---
     unsigned long telemetryIntervalMs;
+    unsigned long sensorSampleMs;
+    unsigned long actionPollMs;
+    unsigned long claimPollMs;
+    unsigned long provisioningRetryMs;
+    unsigned long recoveryPollMs;
+    unsigned long scheduleUpdateMs;
+    unsigned long heartbeatIntervalMs;
+    unsigned long httpTimeoutMs;
+
+    // --- RESILIENCE & LOGIC CONFIGURATIONS ---
+    int maxAuthFailures;
+    int maxNetworkFailures;
+    float failsafeHysteresis;
     
+    // --- BUFFER & TELEMETRY CONFIG ---
+    int telemetryBufferSize;      // Configured value (-1 = Auto)
+    int telemetryAutoBufferSize;  // Calculated value
+    unsigned long firstTelemetryDelayMs;
+
+    // State variables
     int apiFailureCount;
     int cloudTimeoutCount;
 

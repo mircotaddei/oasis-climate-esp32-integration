@@ -29,6 +29,9 @@ public:
     void setRelayModulation(float level);
     float getRelayModulation() const;
 
+    // Telemetry Callback
+    void setTelemetryCallback(TelemetryCallback cb);
+
 private:
     std::vector<OasisDevice*> _devices;
     ConfigManager* _config;

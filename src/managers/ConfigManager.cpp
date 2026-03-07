@@ -10,11 +10,30 @@ ConfigManager::ConfigManager() {
     macAddress[0] = '\0';
     localId[0] = '\0';
     deviceId[0] = '\0';
+
+    // Default Timings (Safe Production Defaults)
+    telemetryIntervalMs = 900000;  // 15 min
+    sensorSampleMs = 60000;        // 60 sec
+    actionPollMs = 30000;          // 30 sec
+    claimPollMs = 10000;           // 10 sec
+    provisioningRetryMs = 10000;   // 10 sec
+    recoveryPollMs = 30000;        // 30 sec
+    scheduleUpdateMs = 21600000;   // 6 hours
+    heartbeatIntervalMs = 5000;    // 5 sec
+    httpTimeoutMs = 5000;          // 5 sec
+
+    // Default Logic
+    maxAuthFailures = 3;
+    maxNetworkFailures = 3;
+    failsafeHysteresis = 0.5;
+    
+    // Buffer Defaults
+    telemetryBufferSize = -1;      // Auto
+    telemetryAutoBufferSize = 0;
+    firstTelemetryDelayMs = 5000;
+
     apiFailureCount = 0;
     cloudTimeoutCount = 0;
-    
-    claimIntervalMs = 10000;       
-    telemetryIntervalMs = 900000;  
 }
 
 
@@ -140,11 +159,56 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
     preferences.putString("device_config", jsonConfigString);
     deserializeJson(deviceConfig, jsonConfigString);
     
+    // Parse Timings
     if (deviceConfig["telemetry_interval_min"].is<unsigned long>()) {
         telemetryIntervalMs = deviceConfig["telemetry_interval_min"].as<unsigned long>() * 60 * 1000;
     }
+    if (deviceConfig["sensor_sample_sec"].is<unsigned long>()) {
+        sensorSampleMs = deviceConfig["sensor_sample_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["action_poll_sec"].is<unsigned long>()) {
+        actionPollMs = deviceConfig["action_poll_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["claim_poll_sec"].is<unsigned long>()) {
+        claimPollMs = deviceConfig["claim_poll_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["provisioning_retry_sec"].is<unsigned long>()) {
+        provisioningRetryMs = deviceConfig["provisioning_retry_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["recovery_poll_sec"].is<unsigned long>()) {
+        recoveryPollMs = deviceConfig["recovery_poll_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["schedule_update_hours"].is<unsigned long>()) {
+        scheduleUpdateMs = deviceConfig["schedule_update_hours"].as<unsigned long>() * 3600 * 1000;
+    }
+    if (deviceConfig["heartbeat_interval_sec"].is<unsigned long>()) {
+        heartbeatIntervalMs = deviceConfig["heartbeat_interval_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["http_timeout_ms"].is<unsigned long>()) {
+        httpTimeoutMs = deviceConfig["http_timeout_ms"].as<unsigned long>();
+    }
 
-    DEBUG_PRINTLN("Provisioning config saved to local NVS.");
+    // Parse Logic
+    if (deviceConfig["max_auth_failures"].is<int>()) {
+        maxAuthFailures = deviceConfig["max_auth_failures"].as<int>();
+    }
+    if (deviceConfig["max_network_failures"].is<int>()) {
+        maxNetworkFailures = deviceConfig["max_network_failures"].as<int>();
+    }
+    if (deviceConfig["failsafe_hysteresis"].is<float>()) {
+        failsafeHysteresis = deviceConfig["failsafe_hysteresis"].as<float>();
+    }
+
+    // Buffer Defaults
+    if (deviceConfig["telemetry_buffer_size"].is<int>()) {
+        telemetryBufferSize = deviceConfig["telemetry_buffer_size"].as<int>();
+    }
+    if (deviceConfig["first_telemetry_delay_sec"].is<unsigned long>()) {
+        firstTelemetryDelayMs = deviceConfig["first_telemetry_delay_sec"].as<unsigned long>() * 1000;
+    }
+
+
+    DEBUG_PRINTLN("Provisioning config saved and applied.");
 
     #ifdef WOKWI_SIMULATION
         syncNvsToCloud();

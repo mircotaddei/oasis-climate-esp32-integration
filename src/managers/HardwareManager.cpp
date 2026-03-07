@@ -153,3 +153,12 @@ float HardwareManager::getRelayModulation() const {
     }
     return 0.0;
 }
+
+
+// --- SET TELEMETRY CALLBACK --------------------------------------------------
+
+void HardwareManager::setTelemetryCallback(TelemetryCallback cb) {
+    for (auto device : _devices) {
+        device->setTelemetryCallback(cb);
+    }
+}

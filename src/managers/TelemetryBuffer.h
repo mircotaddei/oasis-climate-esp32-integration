@@ -11,7 +11,7 @@
 
 struct TelemetryRecord {
     unsigned long timestamp; // Epoch time
-    int sensorIndex;         // Index in HardwareManager's sensor vector
+    OasisDevice* device;     // Pointer to the device
     float value;
 };
 
@@ -22,13 +22,14 @@ class TelemetryBuffer {
 public:
     TelemetryBuffer(size_t capacity = 60); // Default 60 records (~1 hour at 1 min interval for 1 sensor)
     
-    void add(unsigned long timestamp, int sensorIndex, float value);
+    int init(int requestedSize);
+
+    void add(unsigned long timestamp, OasisDevice* device, float value);
     bool isEmpty();
     void clear();
     
     // Serializes the buffer to a JSON array string
-    // Requires HardwareManager to resolve sensorIndex to Global ID
-    String getPayload(const char* deviceId, const HardwareManager* hwManager);
+    String getPayload(const char* deviceId);
 
 private:
     std::vector<TelemetryRecord> _buffer;
