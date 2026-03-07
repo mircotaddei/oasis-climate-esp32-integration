@@ -51,6 +51,9 @@ public:
     virtual void populateMeta(JsonObject& meta) const = 0;
     virtual void applyMeta(JsonObjectConst meta) = 0;
 
+    // Diagnostics
+    virtual void populateDiagnostics(JsonObject& metrics, JsonObject& tags) { /* Default - does nothing */ }
+
     // Event-Driven Telemetry
     void setTelemetryCallback(TelemetryCallback cb) {
         _telemetryCallback = cb;

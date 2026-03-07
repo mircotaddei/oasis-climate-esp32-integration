@@ -21,6 +21,7 @@ ConfigManager::ConfigManager() {
     scheduleUpdateMs = 21600000;   // 6 hours
     heartbeatIntervalMs = 5000;    // 5 sec
     httpTimeoutMs = 5000;          // 5 sec
+    diagnosticIntervalMs = 3600000; // Default 1 hour
 
     // Default Logic
     maxAuthFailures = 3;
@@ -187,6 +188,9 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
     }
     if (deviceConfig["http_timeout_ms"].is<unsigned long>()) {
         httpTimeoutMs = deviceConfig["http_timeout_ms"].as<unsigned long>();
+    }
+    if (deviceConfig["diagnostic_interval_seconds"].is<unsigned long>()) {
+        diagnosticIntervalMs = deviceConfig["diagnostic_interval_seconds"].as<unsigned long>() * 1000;
     }
 
     // Parse Logic

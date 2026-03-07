@@ -164,7 +164,9 @@ bool ApiClient::updateThermostatConfig(ConfigManager* config) {
     meta["recovery_poll_sec"] = config->recoveryPollMs / 1000;
     meta["schedule_update_hours"] = config->scheduleUpdateMs / 3600000;
     meta["heartbeat_interval_sec"] = config->heartbeatIntervalMs / 1000;
-    
+    meta["http_timeout_ms"] = config->httpTimeoutMs;
+    meta["diagnostic_interval_seconds"] = config->diagnosticIntervalMs / 1000;
+
     meta["max_auth_failures"] = config->maxAuthFailures;
     meta["max_network_failures"] = config->maxNetworkFailures;
     meta["failsafe_hysteresis"] = config->failsafeHysteresis;
@@ -242,6 +244,52 @@ bool ApiClient::sendTelemetry(ConfigManager* config, String payload) {
     }
     
     return (res.code == 201);
+}
+
+
+// --- SEND DIAGNOSTICS --------------------------------------------------------
+
+void ApiClient::sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices) {
+    JsonDocument doc;
+    doc["device_id"] = config->deviceId;
+    
+    // System Metrics
+    JsonObject metrics = doc["metrics"].to<JsonObject>();
+    metrics["rssi"] = WiFi.RSSI();
+    metrics["free_heap"] = ESP.getFreeHeap();
+    metrics["uptime_sec"] = millis() / 1000;
+    
+    // System Tags
+    JsonObject tags = doc["tags"].to<JsonObject>();
+    tags["firmware_version"] = FIRMWARE_VERSION;
+    tags["wifi_ssid"] = WiFi.SSID();
+    tags["ip_address"] = WiFi.localIP().toString();
+
+    // Device/Sensor Diagnostics
+    JsonArray sensors = doc["sensors"].to<JsonArray>();
+    for (auto device : devices) {
+        if (strlen(device->getGlobalId()) > 0) {
+            JsonObject s = sensors.add<JsonObject>();
+            s["device_id"] = device->getGlobalId();
+            
+            JsonObject sMetrics = s["metrics"].to<JsonObject>();
+            JsonObject sTags = s["tags"].to<JsonObject>();
+            
+            device->populateDiagnostics(sMetrics, sTags);
+        }
+    }
+
+    String payload;
+    serializeJson(doc, payload);
+    
+    DEBUG_PRINTLN("--- [API] Sending Diagnostics ---");
+    ApiResponse res = executeRequest(config, "POST", "/telemetry/diagnostics", payload, true);
+    
+    if (res.code == 202) {
+        DEBUG_PRINTLN("[API] Diagnostics accepted.");
+    } else {
+        DEBUG_PRINTLN("[API] Diagnostics failed: ", res.code);
+    }
 }
 
 

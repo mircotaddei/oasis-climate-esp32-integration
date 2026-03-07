@@ -40,7 +40,9 @@ public:
     void registerDevices(ConfigManager* config, const std::vector<OasisDevice*>& devices);
     bool reportRecovery(ConfigManager* config);
     
-    bool sendTelemetry(ConfigManager* config, String payload); 
+    bool sendTelemetry(ConfigManager* config, String payload);
+    void sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices);
+    
     bool pollActions(ConfigManager* config, float* outModulation);
 
     bool fetchSchedule(ConfigManager* config, ScheduleManager* scheduleManager);

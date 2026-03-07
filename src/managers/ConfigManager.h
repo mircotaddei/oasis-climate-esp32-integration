@@ -66,6 +66,7 @@ public:
     unsigned long scheduleUpdateMs;
     unsigned long heartbeatIntervalMs;
     unsigned long httpTimeoutMs;
+    unsigned long diagnosticIntervalMs;
 
     // --- RESILIENCE & LOGIC CONFIGURATIONS ---
     int maxAuthFailures;

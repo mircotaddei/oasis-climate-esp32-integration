@@ -179,6 +179,17 @@ void DallasSensor::applyMeta(JsonObjectConst meta) {
 }
 
 
+// --- DIAGNOSTICS -------------------------------------------------------------
+
+void DallasSensor::populateDiagnostics(JsonObject& metrics, JsonObject& tags) {
+    metrics["error_count"] = _errorCount;
+    tags["status"] = _isConnected ? "connected" : "disconnected";
+    
+    // Reset error count after reporting
+    _errorCount = 0; 
+}
+
+
 // --- GETTERS & SETTERS -------------------------------------------------------
 
 float DallasSensor::getTemperature() const {

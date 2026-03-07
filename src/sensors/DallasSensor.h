@@ -40,7 +40,8 @@ public:
 
     void populateMeta(JsonObject& meta) const override;
     void applyMeta(JsonObjectConst meta) override;
-    
+
+    void populateDiagnostics(JsonObject& metrics, JsonObject& tags) override;
 
     // SensorDriver Interface
     float getTemperature() const override;

@@ -216,6 +216,7 @@ void loop() {
     static unsigned long lastSampleMillis = 0;
     static unsigned long lastActionMillis = 0;
     static unsigned long lastScheduleMillis = 0;
+    static unsigned long lastDiagnosticMillis = 0;
     static bool isFirstTelemetryPending = true;
     static bool recoveryReported = false;
 
@@ -412,7 +413,14 @@ void loop() {
                 }
             }
 
-            // 4. Schedule Update Loop (Very Slow - e.g. every 6 hours)
+            // 4. Diagnostic Loop (Very Slow - e.g. every 1 hour)
+            if (millis() - lastDiagnosticMillis > configManager.diagnosticIntervalMs) {
+                lastDiagnosticMillis = millis();
+                DEBUG_PRINTLN("\n[MAIN] Triggering Diagnostics...");
+                apiClient.sendDiagnostics(&configManager, hardwareManager.getAllDevices());
+            }
+
+            // 5. Schedule Update Loop (Very Slow - e.g. every 6 hours)
             if (millis() - lastScheduleMillis > configManager.scheduleUpdateMs) {
                 lastScheduleMillis = millis();
                 DEBUG_PRINTLN("[MAIN] STATE RUNNING - Schedule Loop");
