@@ -18,20 +18,18 @@ int TelemetryBuffer::init(int requestedSize) {
         _capacity = requestedSize;
         DEBUG_PRINTLN("[BUFFER] Size set to fixed value: ", _capacity);
     } else {
-        // AUTO MODE
-        // Calculate safe size based on free heap
-        // Reserve 10% of free heap for buffer
+        // AUTO MODE: Use 40% of free heap
         uint32_t freeHeap = ESP.getFreeHeap();
-        uint32_t safeRam = freeHeap / 10; 
+        uint32_t safeRam = (freeHeap * 40) / 100; 
         size_t recordSize = sizeof(TelemetryRecord);
         
         _capacity = safeRam / recordSize;
         
-        // Cap at reasonable limits
-        if (_capacity < 10) _capacity = 10; // Minimum
-        if (_capacity > 1000) _capacity = 1000; // Maximum
+        // Cap at 6000 records (~24h for 4 sensors)
+        if (_capacity < 10) _capacity = 10; 
+        if (_capacity > 6000) _capacity = 6000; 
         
-        DEBUG_PRINTLN("[BUFFER] Auto-Sizing. Free Heap: ", freeHeap, " B. Allocated: ", _capacity, " records.");
+        DEBUG_PRINTLN("[BUFFER] Auto-Sizing (40%). Free: ", freeHeap, " B. Cap: ", _capacity);
     }
     
     _buffer.reserve(_capacity);
@@ -72,13 +70,16 @@ void TelemetryBuffer::clear() {
 
 
 // --- GET PAYLOAD -------------------------------------------------------------
-
-String TelemetryBuffer::getPayload(const char* deviceId) {
+int TelemetryBuffer::getPayload(const char* deviceId, String& outPayload, int limit) {
     JsonDocument doc;
     doc["device_id"] = deviceId;
     JsonArray readings = doc["readings"].to<JsonArray>();
 
-    for (const auto& record : _buffer) {
+    int count = 0;
+    // Iterate only up to the limit or buffer size
+    for (int i = 0; i < _buffer.size() && count < limit; i++) {
+        const auto& record = _buffer[i];
+        
         if (record.device && strlen(record.device->getGlobalId()) > 0) {
             JsonObject r = readings.add<JsonObject>();
             r["device_id"] = record.device->getGlobalId();
@@ -88,16 +89,35 @@ String TelemetryBuffer::getPayload(const char* deviceId) {
                 r["timestamp"] = TimeManager::epochToISO8601(record.timestamp);
             }
             
-            // If it's a sensor, add error count
             if (record.device->getType() == DEVICE_TYPE_SENSOR_DALLAS) {
                 SensorDriver* sensor = static_cast<SensorDriver*>(record.device);
                 r["error_count"] = sensor->getErrorCount();
                 sensor->clearErrorCount();
             }
+            count++;
         }
     }
 
-    String payload;
-    serializeJson(doc, payload);
-    return payload;
+    serializeJson(doc, outPayload);
+    return count;
+}
+
+
+// --- REMOVE OLDEST -----------------------------------------------------------
+
+void TelemetryBuffer::removeOldest(int count) {
+    if (count <= 0) return;
+    if (count >= _buffer.size()) {
+        _buffer.clear();
+    } else {
+        _buffer.erase(_buffer.begin(), _buffer.begin() + count);
+    }
+    DEBUG_PRINTLN("[BUFFER] Removed ", count, " records. Remaining: ", _buffer.size());
+}
+
+
+// --- GET COUNT ---------------------------------------------------------------
+
+int TelemetryBuffer::getCount() {
+    return _buffer.size();
 }

@@ -226,14 +226,22 @@ void ApiClient::registerDevices(ConfigManager* config, const std::vector<OasisDe
 
 // --- SEND TELEMETRY ----------------------------------------------------------
 
-void ApiClient::sendTelemetry(ConfigManager* config, String payload) {
+bool ApiClient::sendTelemetry(ConfigManager* config, String payload) {
     ApiResponse res = executeRequest(config, "POST", "/telemetry", payload, true);
 
     if (res.code == 401 || res.code == 403 || res.code == 404) {
         config->apiFailureCount++;
+        if (config->apiFailureCount >= 3) {
+            DEBUG_PRINTLN("!!! REVOKED !!! Factory Resetting...");
+            config->factoryReset();
+            delay(1000);
+            ESP.restart();
+        }
     } else if (res.code > 0) {
         config->apiFailureCount = 0;
     }
+    
+    return (res.code == 201);
 }
 
 

@@ -361,17 +361,33 @@ void loop() {
 
             // 2. Telemetry Loop (Slow)
             unsigned long interval = isFirstTelemetryPending ? 5000 : configManager.telemetryIntervalMs;
-            if (millis() - lastTelemetryMillis > configManager.telemetryIntervalMs) {
+            if (millis() - lastTelemetryMillis > interval) {
                 lastTelemetryMillis = millis();
-                DEBUG_PRINTLN("[MAIN] STATE RUNNING - Telemetry Loop");
+                isFirstTelemetryPending = false;
                 
                 if (!telemetryBuffer.isEmpty()) {
                     DEBUG_PRINTLN("\n[MAIN] Triggering Batch Telemetry...");
-                    String payload = telemetryBuffer.getPayload(configManager.deviceId);
-                    apiClient.sendTelemetry(&configManager, payload);
-                    telemetryBuffer.clear(); 
-                } else {
-                    DEBUG_PRINTLN("[MAIN] Buffer empty, skipping telemetry.");
+                    
+                    // Keep sending chunks until buffer is empty or an error occurs
+                    while (!telemetryBuffer.isEmpty()) {
+                        String payload;
+                        int count = telemetryBuffer.getPayload(configManager.deviceId, payload, configManager.telemetryMaxBatchSize);
+                        
+                        if (count > 0) {
+                            DEBUG_PRINTLN("[MAIN] Sending chunk of ", count, " records...");
+                            if (apiClient.sendTelemetry(&configManager, payload)) {
+                                telemetryBuffer.removeOldest(count);
+                            } else {
+                                DEBUG_PRINTLN("[MAIN] Telemetry failed. Retrying next cycle.");
+                                break; // Stop sending if one chunk fails
+                            }
+                        } else {
+                            break; // Should not happen if buffer not empty
+                        }
+                        
+                        // Small delay between chunks to let WiFi stack breathe
+                        delay(100); 
+                    }
                 }
             }
 

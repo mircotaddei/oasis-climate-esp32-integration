@@ -41,9 +41,9 @@
 
 // --- DEVELOPMENT FALLBACKS ---------------------------------------------------
 
-#define FALLBACK_SSID ""
-#define FALLBACK_PASS ""
-#define FALLBACK_API_URL "" 
+#define FALLBACK_SSID "Casa"
+#define FALLBACK_PASS "birillino"
+#define FALLBACK_API_URL "http://192.168.10.103:8000/api/v1" 
 
 
 // --- CONFIG MANAGER CLASS ----------------------------------------------------
@@ -76,6 +76,7 @@ public:
     int telemetryBufferSize;      // Configured value (-1 = Auto)
     int telemetryAutoBufferSize;  // Calculated value
     unsigned long firstTelemetryDelayMs;
+    int telemetryMaxBatchSize;
 
     // State variables
     int apiFailureCount;

@@ -31,6 +31,7 @@ ConfigManager::ConfigManager() {
     telemetryBufferSize = -1;      // Auto
     telemetryAutoBufferSize = 0;
     firstTelemetryDelayMs = 5000;
+    telemetryMaxBatchSize = 50;
 
     apiFailureCount = 0;
     cloudTimeoutCount = 0;
@@ -205,6 +206,9 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
     }
     if (deviceConfig["first_telemetry_delay_sec"].is<unsigned long>()) {
         firstTelemetryDelayMs = deviceConfig["first_telemetry_delay_sec"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["telemetry_max_batch_size"].is<int>()) {
+        telemetryMaxBatchSize = deviceConfig["telemetry_max_batch_size"].as<int>();
     }
 
 

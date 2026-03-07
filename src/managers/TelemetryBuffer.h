@@ -29,7 +29,10 @@ public:
     void clear();
     
     // Serializes the buffer to a JSON array string
-    String getPayload(const char* deviceId);
+    int getPayload(const char* deviceId, String& outPayload, int limit);
+    void removeOldest(int count);
+
+    int getCount();
 
 private:
     std::vector<TelemetryRecord> _buffer;
