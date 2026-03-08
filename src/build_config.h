@@ -8,20 +8,14 @@
 #define DEVICE_TYPE         "OASIS_THERMOSTAT_V1"
 
 
-// --- DEVELOPMENT MODE --------------------------------------------------------
+// --- SECURITY DEFAULTS ------------------------------------------------------
+// Can be disabled in build_dev_env.h for local development.
+#define ENABLE_SSL_VALIDATION
 
-#define DEVEL_MODE
 
-
-// --- DEVELOPMENT FALLBACKS ---------------------------------------------------
-
-#ifdef DEVEL_MODE
-    #include "build_dev_env.h"
-#else
-    #define FALLBACK_SSID       ""
-    #define FALLBACK_PASS       ""
-    #define FALLBACK_API_URL    "https://api.oasis-climate.com/api/v1" 
-#endif
+// --- HARDWARE MODULES ACTIVATION --------------------------------------------
+#define ENABLE_BOILER_RELAY
+#define ENABLE_DALLAS_SENSOR
 
 
 // --- DEFAULT OPERATIONAL TIMINGS (Seconds/Minutes) ---------------------------
@@ -54,12 +48,19 @@
 #define STATUS_LED_PIN          2
 
 
-// --- HARDWARE MODULES ACTIVATION (RESTORED) ----------------------------------
-// Actuators
-#define ENABLE_BOILER_RELAY
+// --- DEVELOPMENT MODE --------------------------------------------------------
 
-// Sensors
-#define ENABLE_DALLAS_SENSOR
+#define DEVEL_MODE
 
+
+// --- DEVELOPMENT FALLBACKS ---------------------------------------------------
+
+#ifdef DEVEL_MODE
+    #include "build_dev_env.h"
+#else
+    #define FALLBACK_SSID       ""
+    #define FALLBACK_PASS       ""
+    #define FALLBACK_API_URL    "https://oasis-climate.com/api/v1" 
+#endif
 
 #endif // BUILD_CONFIG_H

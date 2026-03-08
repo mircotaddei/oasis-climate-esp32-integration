@@ -1,6 +1,7 @@
 #include "ApiClient.h"
 #include "build_config.h"
 #include <ArduinoJson.h>
+#include "certs/root_ca.h"
 
 
 // --- EXECUTE REQUEST ---------------------------------------------------------
@@ -13,8 +14,23 @@ ApiResponse ApiClient::executeRequest(ConfigManager* config, const char* method,
         return response;
     }
 
-    WiFiClient *client = (String(config->apiUrl).startsWith("https")) ? new WiFiClientSecure : new WiFiClient;
-    if (String(config->apiUrl).startsWith("https")) ((WiFiClientSecure*)client)->setInsecure();
+    WiFiClient *client = nullptr;
+    
+    if (String(config->apiUrl).startsWith("https")) {
+        client = new WiFiClientSecure;
+        
+        #ifdef ENABLE_SSL_VALIDATION
+            DEBUG_PRINTLN("[API] Using Secure SSL with Root CA.");
+            ((WiFiClientSecure*)client)->setCACert(root_ca_pem);
+        #else
+            DEBUG_PRINTLN("[API] WARNING: SSL Validation Disabled (Insecure Mode).");
+            ((WiFiClientSecure*)client)->setInsecure();
+        #endif
+        
+    } else {
+        client = new WiFiClient;
+    }
+
 
     {
         HTTPClient http;
@@ -75,6 +91,8 @@ ApiResponse ApiClient::executeRequest(ConfigManager* config, const char* method,
     delete client; 
     return response;
 }
+
+
 // --- POLL REGISTRATION -------------------------------------------------------
 
 ClaimStatus ApiClient::pollRegistration(ConfigManager* config, String* outClaimCode) {
