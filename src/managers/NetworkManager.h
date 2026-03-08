@@ -19,6 +19,8 @@ public:
     void handleClaimingPortal();
     void stopClaimingPortal();
 
+    static WiFiClient* createHttpClient(const String& url);
+
 private:
     WebServer* _server;
     DNSServer* _dnsServer;

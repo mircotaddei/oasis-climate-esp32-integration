@@ -1,6 +1,7 @@
+#include <ArduinoJson.h>
 #include "ApiClient.h"
 #include "build_config.h"
-#include <ArduinoJson.h>
+#include "managers/NetworkManager.h"
 #include "certs/root_ca.h"
 
 
@@ -14,27 +15,11 @@ ApiResponse ApiClient::executeRequest(ConfigManager* config, const char* method,
         return response;
     }
 
-    WiFiClient *client = nullptr;
-    
-    if (String(config->apiUrl).startsWith("https")) {
-        client = new WiFiClientSecure;
-        
-        #ifdef ENABLE_SSL_VALIDATION
-            DEBUG_PRINTLN("[API] Using Secure SSL with Root CA.");
-            ((WiFiClientSecure*)client)->setCACert(root_ca_pem);
-        #else
-            DEBUG_PRINTLN("[API] WARNING: SSL Validation Disabled (Insecure Mode).");
-            ((WiFiClientSecure*)client)->setInsecure();
-        #endif
-        
-    } else {
-        client = new WiFiClient;
-    }
-
+    String fullUrl = String(config->apiUrl) + path;
+    WiFiClient *client = NetworkManager::createHttpClient(fullUrl);
 
     {
         HTTPClient http;
-        String fullUrl = String(config->apiUrl) + path;
         
         DEBUG_PRINTLN("--- [API] ", method, " START ---");
         DEBUG_PRINTLN("URL: ", fullUrl);
@@ -267,23 +252,37 @@ bool ApiClient::sendTelemetry(ConfigManager* config, String payload) {
 
 // --- SEND DIAGNOSTICS --------------------------------------------------------
 
-void ApiClient::sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices) {
+void ApiClient::sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices, const char* resetReason, const char* otaStatus) {
     JsonDocument doc;
     doc["device_id"] = config->deviceId;
     
-    // System Metrics
+    // TODO Optional ISO 8601 Timestamp
+    // Assuming TimeManager is globally accessible or we pass the epoch. 
+    // For simplicity, we'll let the backend assign the timestamp if we don't have it,
+    // but if you want to include it, you'd need to pass TimeManager* or the string.
+    // Let's omit it for now to keep the signature clean; backend defaults to func.now().
+    
+    // Controller Metrics
     JsonObject metrics = doc["metrics"].to<JsonObject>();
     metrics["rssi"] = WiFi.RSSI();
     metrics["free_heap"] = ESP.getFreeHeap();
     metrics["uptime_sec"] = millis() / 1000;
     
-    // System Tags
+    // Controller Tags
     JsonObject tags = doc["tags"].to<JsonObject>();
     tags["firmware_version"] = FIRMWARE_VERSION;
     tags["wifi_ssid"] = WiFi.SSID();
     tags["ip_address"] = WiFi.localIP().toString();
+    
+    // Optional Event Tags
+    if (resetReason != nullptr) {
+        tags["reset_reason"] = resetReason;
+    }
+    if (otaStatus != nullptr) {
+        tags["ota_status"] = otaStatus;
+    }
 
-    // Device/Sensor Diagnostics
+    // Nested Sensor Diagnostics
     JsonArray sensors = doc["sensors"].to<JsonArray>();
     for (auto device : devices) {
         if (strlen(device->getGlobalId()) > 0) {
@@ -301,6 +300,10 @@ void ApiClient::sendDiagnostics(ConfigManager* config, const std::vector<OasisDe
     serializeJson(doc, payload);
     
     DEBUG_PRINTLN("--- [API] Sending Diagnostics ---");
+    if (resetReason || otaStatus) {
+        DEBUG_PRINTLN("Event included. Payload: ", payload);
+    }
+    
     ApiResponse res = executeRequest(config, "POST", "/telemetry/diagnostics", payload, true);
     
     if (res.code == 202) {

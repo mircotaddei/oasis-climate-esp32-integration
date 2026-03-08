@@ -50,7 +50,7 @@ public:
     bool reportRecovery(ConfigManager* config);
     
     bool sendTelemetry(ConfigManager* config, String payload);
-    void sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices);
+    void sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices, const char* resetReason = nullptr, const char* otaStatus = nullptr);    
     
     ActionResponse pollActions(ConfigManager* config);
 

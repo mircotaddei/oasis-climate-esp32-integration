@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 #include "managers/ConfigManager.h"
 #include "managers/NetworkManager.h"
 #include "managers/HardwareManager.h"
@@ -6,6 +7,7 @@
 #include "managers/TimeManager.h"
 #include "managers/TelemetryBuffer.h"
 #include "managers/ScheduleManager.h"
+#include "managers/OtaManager.h"
 #include "ApiClient.h"
 #include "utils/Logger.h"
 
@@ -30,6 +32,7 @@ LedManager ledManager;
 TimeManager timeManager;
 ScheduleManager scheduleManager;
 TelemetryBuffer telemetryBuffer;
+OtaManager otaManager;
 
 
 // --- STATE MACHINE -----------------------------------------------------------
@@ -165,7 +168,11 @@ bool performFullSync() {
 void setup() {
     // 1. Core System Init
     Serial.begin(115200);
-    delay(100); 
+    delay(100);
+
+    // Initialize Watchdog
+    esp_task_wdt_init(30, true); 
+    esp_task_wdt_add(NULL);
     
     // Initialize TimeManager early for logging capability
     timeManager.begin();
@@ -235,6 +242,9 @@ void setup() {
 // --- LOOP --------------------------------------------------------------------
 
 void loop() {
+    // Watchdog Reset
+    esp_task_wdt_reset();
+
     static unsigned long lastPollMillis = 0;
     static unsigned long lastTelemetryMillis = 0;
     static unsigned long lastSampleMillis = 0;
@@ -342,6 +352,17 @@ void loop() {
                     isFirstTelemetryPending = true;
                     lastTelemetryMillis = millis(); 
                     lastConfigSyncMillis = millis();
+
+                    // NEW: Send Boot Event after successful provisioning/connection
+                    // We can read the reset reason to know if it was a Watchdog crash
+                    esp_reset_reason_t reason = esp_reset_reason();
+                    String reasonStr = "Unknown";
+                    if (reason == ESP_RST_PANIC) reasonStr = "Software Panic / Watchdog";
+                    else if (reason == ESP_RST_POWERON) reasonStr = "Power On";
+                    else if (reason == ESP_RST_SW) reasonStr = "Software Reset (OTA/Factory)";
+                    
+                    apiClient.sendDiagnostics(&configManager, hardwareManager.getAllDevices(), reasonStr.c_str(), nullptr);
+
                 } else {
                     DEBUG_PRINTLN("[MAIN] Provisioning failed. Retrying...");
                 }
@@ -418,6 +439,16 @@ void loop() {
                     hardwareManager.setRelayModulation(action.modulation);
                     DEBUG_PRINTLN("[MAIN] Applied cloud modulation: ", action.modulation);
                     
+                    if (action.otaUrl.length() > 0) {
+                        DEBUG_PRINTLN("[MAIN] OTA Update requested! URL: ", action.otaUrl);
+                        apiClient.sendDiagnostics(&configManager, hardwareManager.getAllDevices(), nullptr, "ota_started");
+                        
+                        if (!otaManager.tryUpdate(&configManager, action.otaUrl)) {
+                            apiClient.sendDiagnostics(&configManager, hardwareManager.getAllDevices(), nullptr, "ota_failed");
+                        }
+                        // If successful, device reboots automatically.
+                    }
+
                     // PIGGYBACK SYNC CHECK
                     if (!action.synced) {
                         DEBUG_PRINTLN("[MAIN] Cloud indicates out-of-sync. Triggering immediate sync.");

@@ -1,4 +1,6 @@
 #include "NetworkManager.h"
+#include <WiFiClientSecure.h>
+#include "../certs/root_ca.h"
 
 
 // --- GLOBALS -----------------------------------------------------------------
@@ -185,4 +187,26 @@ void NetworkManager::handleRoot() {
     html += "</body></html>";
     
     _server->send(200, "text/html", html);
+}
+
+
+// --- CREATE HTTP CLIENT ------------------------------------------------------
+
+WiFiClient* NetworkManager::createHttpClient(const String& url) {
+    if (url.startsWith("https")) {
+        WiFiClientSecure* secureClient = new WiFiClientSecure;
+        
+        #ifdef ENABLE_SSL_VALIDATION
+            DEBUG_PRINTLN("[NET] Creating Secure Client (SSL Validation ON)");
+            secureClient->setCACert(root_ca_pem);
+        #else
+            DEBUG_PRINTLN("[NET] Creating Secure Client (SSL Validation OFF - Insecure)");
+            secureClient->setInsecure();
+        #endif
+        
+        return secureClient;
+    } else {
+        DEBUG_PRINTLN("[NET] Creating Standard HTTP Client");
+        return new WiFiClient;
+    }
 }
