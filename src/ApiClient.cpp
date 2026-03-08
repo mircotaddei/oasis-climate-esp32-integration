@@ -295,7 +295,9 @@ void ApiClient::sendDiagnostics(ConfigManager* config, const std::vector<OasisDe
 
 // --- POLL ACTIONS ------------------------------------------------------------
 
-bool ApiClient::pollActions(ConfigManager* config, float* outModulation) {
+ActionResponse ApiClient::pollActions(ConfigManager* config) {
+    ActionResponse result = {false, 0.0, "", true}; // Default: failed, 0 mod, synced
+
     String path = "/hardware/" + String(config->deviceId) + "/action";
     ApiResponse res = executeRequest(config, "GET", path.c_str(), "", true);
 
@@ -303,11 +305,18 @@ bool ApiClient::pollActions(ConfigManager* config, float* outModulation) {
         JsonDocument doc;
         if (deserializeJson(doc, res.body) == DeserializationError::Ok) {
             if (doc["modulation"].is<float>()) {
-                *outModulation = doc["modulation"].as<float>();
-                config->apiFailureCount = 0;
-                config->cloudTimeoutCount = 0;
-                return true;
+                result.modulation = doc["modulation"].as<float>();
             }
+            if (doc["ota_url"].is<const char*>()) {
+                result.otaUrl = doc["ota_url"].as<String>();
+            }
+            if (doc["synced"].is<bool>()) {
+                result.synced = doc["synced"].as<bool>();
+            }
+            
+            result.success = true;
+            config->apiFailureCount = 0;
+            config->cloudTimeoutCount = 0;
         }
     } else if (res.code == 401 || res.code == 403 || res.code == 404) {
         config->apiFailureCount++;
@@ -315,7 +324,8 @@ bool ApiClient::pollActions(ConfigManager* config, float* outModulation) {
     } else {
         config->cloudTimeoutCount++;
     }
-    return false;
+    
+    return result;
 }
 
 

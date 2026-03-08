@@ -136,6 +136,30 @@ void onDeviceEvent(OasisDevice* device, float value) {
 }
 
 
+// --- PERFORM FULL SYNC -------------------------------------------------------
+
+bool performFullSync() {
+    DEBUG_PRINTLN("[SYNC] Starting full configuration sync...");
+    
+    if (apiClient.fetchConfig(&configManager)) {
+        DEBUG_PRINTLN("[SYNC] Config fetched. Syncing Thermostat state...");
+        apiClient.updateThermostatConfig(&configManager);
+        
+        DEBUG_PRINTLN("[SYNC] Registering Devices...");
+        apiClient.registerDevices(&configManager, hardwareManager.getAllDevices());
+        
+        DEBUG_PRINTLN("[SYNC] Fetching Schedule...");
+        apiClient.fetchSchedule(&configManager, &scheduleManager);
+        
+        DEBUG_PRINTLN("[SYNC] Full sync complete.");
+        return true;
+    }
+    
+    DEBUG_PRINTLN("[SYNC] Full sync failed at fetchConfig.");
+    return false;
+}
+
+
 // --- SETUP -------------------------------------------------------------------
 
 void setup() {
@@ -217,6 +241,7 @@ void loop() {
     static unsigned long lastActionMillis = 0;
     static unsigned long lastScheduleMillis = 0;
     static unsigned long lastDiagnosticMillis = 0;
+    static unsigned long lastConfigSyncMillis = 0;
     static bool isFirstTelemetryPending = true;
     static bool recoveryReported = false;
 
@@ -306,33 +331,21 @@ void loop() {
 
         case STATE_PROVISIONING:
             if (lastPollMillis == 0 || millis() - lastPollMillis > configManager.provisioningRetryMs) {
+                
                 lastPollMillis = millis();
                 DEBUG_PRINTLN("\n[MAIN] Triggering Config Fetch...");
                 
-                // Step 1: Download config from cloud
-                if (apiClient.fetchConfig(&configManager)) {
-                    DEBUG_PRINTLN("[MAIN] Config fetched. Syncing Thermostat state...");
-                    
-                    // Step 2: Upload actual capabilities and internal state to cloud
-                    apiClient.updateThermostatConfig(&configManager);
-                    
-                    DEBUG_PRINTLN("[MAIN] Registering Devices...");
-                    // Step 3: Sync sensors and actuators
-                    apiClient.registerDevices(&configManager, hardwareManager.getAllDevices());
-                    
-                    DEBUG_PRINTLN("[MAIN] Fetching Schedule...");
-                    // Step 4: Download failsafe schedule
-                    apiClient.fetchSchedule(&configManager, &scheduleManager);
-                    
-                    DEBUG_PRINTLN("[MAIN] Provisioning Complete! -> STATE_RUNNING");
+                if (performFullSync()) {
+                    DEBUG_PRINTLN("[MAIN] Provisioning Success! -> STATE_RUNNING");
                     currentState = STATE_RUNNING;
                     ledManager.setState(LED_ON); 
-                    
                     isFirstTelemetryPending = true;
                     lastTelemetryMillis = millis(); 
+                    lastConfigSyncMillis = millis();
                 } else {
-                    DEBUG_PRINTLN("[MAIN] Config fetch failed. Retrying...");
+                    DEBUG_PRINTLN("[MAIN] Provisioning failed. Retrying...");
                 }
+
             }
             break;
 
@@ -398,17 +411,25 @@ void loop() {
                 DEBUG_PRINTLN("[MAIN] STATE RUNNING - Action Loop");
                 float modulation = 0.0;
 
-                if (apiClient.pollActions(&configManager, &modulation)) {
-                    // CLOUD AUTHORITY: Success
-                    hardwareManager.setRelayModulation(modulation);
-                    DEBUG_PRINTLN("[MAIN] Applied cloud modulation: ", modulation);
+                ActionResponse action = apiClient.pollActions(&configManager);
+                
+                if (action.success) {
+                    // CLOUD AUTHORITY
+                    hardwareManager.setRelayModulation(action.modulation);
+                    DEBUG_PRINTLN("[MAIN] Applied cloud modulation: ", action.modulation);
+                    
+                    // PIGGYBACK SYNC CHECK
+                    if (!action.synced) {
+                        DEBUG_PRINTLN("[MAIN] Cloud indicates out-of-sync. Triggering immediate sync.");
+                        performFullSync();
+                        lastConfigSyncMillis = millis(); // Reset slow timer
+                    }
+                    
                 } else {
-                    // CLOUD FAILED: Check if we should trigger Failsafe
+                    // LOCAL AUTHORITY (Failsafe)
                     if (configManager.cloudTimeoutCount >= configManager.maxNetworkFailures) {
                         DEBUG_PRINTLN("[MAIN] Cloud unreachable. Running Failsafe...");
                         runLocalThermostat();
-                    } else {
-                        DEBUG_PRINTLN("[MAIN] Cloud poll failed. Count: ", configManager.cloudTimeoutCount);
                     }
                 }
             }

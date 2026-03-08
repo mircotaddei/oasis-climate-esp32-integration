@@ -1,4 +1,5 @@
 #include "ConfigManager.h"
+#include "../build_config.h"
 #include <HTTPClient.h> 
 
 
@@ -10,32 +11,32 @@ ConfigManager::ConfigManager() {
     macAddress[0] = '\0';
     localId[0] = '\0';
     deviceId[0] = '\0';
-
-    // Default Timings (Safe Production Defaults)
-    telemetryIntervalMs = 900000;  // 15 min
-    sensorSampleMs = 60000;        // 60 sec
-    actionPollMs = 30000;          // 30 sec
-    claimPollMs = 10000;           // 10 sec
-    provisioningRetryMs = 10000;   // 10 sec
-    recoveryPollMs = 30000;        // 30 sec
-    scheduleUpdateMs = 21600000;   // 6 hours
-    heartbeatIntervalMs = 5000;    // 5 sec
-    httpTimeoutMs = 5000;          // 5 sec
-    diagnosticIntervalMs = 3600000; // Default 1 hour
-
-    // Default Logic
-    maxAuthFailures = 3;
-    maxNetworkFailures = 3;
-    failsafeHysteresis = 0.5;
-    
-    // Buffer Defaults
-    telemetryBufferSize = -1;      // Auto
-    telemetryAutoBufferSize = 0;
-    firstTelemetryDelayMs = 5000;
-    telemetryMaxBatchSize = 50;
-
     apiFailureCount = 0;
     cloudTimeoutCount = 0;
+
+    // Load Timings from build_config.h
+    telemetryIntervalMs =   (unsigned long)DEFAULT_TELEMETRY_INTERVAL_MIN * 60 * 1000;
+    sensorSampleMs =        (unsigned long)DEFAULT_SENSOR_SAMPLE_SEC * 1000;
+    actionPollMs =          (unsigned long)DEFAULT_ACTION_POLL_SEC * 1000;
+    claimPollMs =           (unsigned long)DEFAULT_CLAIM_POLL_SEC * 1000;
+    provisioningRetryMs =   (unsigned long)DEFAULT_PROVISIONING_RETRY_SEC * 1000;
+    recoveryPollMs =        (unsigned long)DEFAULT_RECOVERY_POLL_SEC * 1000;
+    scheduleUpdateMs =      (unsigned long)DEFAULT_SCHEDULE_UPDATE_HOURS * 3600 * 1000;
+    heartbeatIntervalMs =   (unsigned long)DEFAULT_HEARTBEAT_INTERVAL_SEC * 1000;
+    httpTimeoutMs =         (unsigned long)DEFAULT_HTTP_TIMEOUT_MS;
+    configSyncIntervalMs =  (unsigned long)DEFAULT_CONFIG_SYNC_HOURS * 3600 * 1000;
+    diagnosticIntervalMs =  (unsigned long)DEFAULT_DIAGNOSTIC_INTERVAL_SEC * 1000;
+
+    // Load Logic from build_config.h
+    maxAuthFailures =       DEFAULT_MAX_AUTH_FAILURES;
+    maxNetworkFailures =    DEFAULT_MAX_NETWORK_FAILURES;
+    failsafeHysteresis =    DEFAULT_FAILSAFE_HYSTERESIS;
+    
+    // Buffer Config
+    telemetryBufferSize =       -1; // Auto
+    telemetryAutoBufferSize =   0;
+    firstTelemetryDelayMs =     5000;
+    telemetryMaxBatchSize =     DEFAULT_TELEMETRY_MAX_BATCH_SIZE;
 }
 
 
@@ -191,6 +192,9 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
     }
     if (deviceConfig["diagnostic_interval_seconds"].is<unsigned long>()) {
         diagnosticIntervalMs = deviceConfig["diagnostic_interval_seconds"].as<unsigned long>() * 1000;
+    }
+    if (deviceConfig["config_sync_interval_hours"].is<unsigned long>()) {
+        configSyncIntervalMs = deviceConfig["config_sync_interval_hours"].as<unsigned long>() * 3600000;
     }
 
     // Parse Logic

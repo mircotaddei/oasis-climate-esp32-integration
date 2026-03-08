@@ -1,49 +1,65 @@
 #ifndef BUILD_CONFIG_H
 #define BUILD_CONFIG_H
 
-// =============================================================================
-// OASIS CLIMATE - FIRMWARE BUILD CONFIGURATION
-// =============================================================================
-
 
 // --- SYSTEM IDENTITY ---------------------------------------------------------
 
-#define FIRMWARE_VERSION "0.1.0"
-#define DEVICE_TYPE "OASIS_THERMOSTAT_V1"
+#define FIRMWARE_VERSION    "0.2.0"
+#define DEVICE_TYPE         "OASIS_THERMOSTAT_V1"
 
 
-// --- DEBUGGING ---------------------------------------------------------------
+// --- DEVELOPMENT MODE --------------------------------------------------------
 
-// Uncomment to enable debug prints on physical hardware
-#define DEBUG_MODE_PHYSICAL
-
-
-// --- HARDWARE MODULES ACTIVATION ---------------------------------------------
-// Comment out a line to completely remove the module from the compiled firmware
-
-
-// Actuators
-#define ENABLE_BOILER_RELAY
-
-
-// Sensors
-#define ENABLE_DALLAS_SENSOR
-// #define ENABLE_PIR_SENSOR   // Future expansion
-// #define ENABLE_BME280       // Future expansion
-
-
-// --- SYSTEM HARDWARE PINS ----------------------------------------------------
-
-#define FACTORY_RESET_PIN 0       // BOOT button on ESP32 DevKit
-#define FACTORY_RESET_HOLD_MS 3000 // Hold for 3 seconds to reset
-#define STATUS_LED_PIN 2          // Built-in LED
+#define DEVEL_MODE
 
 
 // --- DEVELOPMENT FALLBACKS ---------------------------------------------------
 
-#define FALLBACK_SSID ""
-#define FALLBACK_PASS ""
-// Replace with your computer's local IP address (e.g., 192.168.1.100)
-#define FALLBACK_API_URL "http://192.168.10.103:8000/api/v1" 
+#ifdef DEVEL_MODE
+    #include "build_dev_env.h"
+#else
+    #define FALLBACK_SSID       ""
+    #define FALLBACK_PASS       ""
+    #define FALLBACK_API_URL    "https://api.oasis-climate.com/api/v1" 
+#endif
+
+
+// --- DEFAULT OPERATIONAL TIMINGS (Seconds/Minutes) ---------------------------
+
+#define DEFAULT_TELEMETRY_INTERVAL_MIN  15
+#define DEFAULT_SENSOR_SAMPLE_SEC       60
+#define DEFAULT_ACTION_POLL_SEC         30
+#define DEFAULT_CLAIM_POLL_SEC          10
+#define DEFAULT_PROVISIONING_RETRY_SEC  10
+#define DEFAULT_RECOVERY_POLL_SEC       30
+#define DEFAULT_SCHEDULE_UPDATE_HOURS   6
+#define DEFAULT_HEARTBEAT_INTERVAL_SEC  5
+#define DEFAULT_HTTP_TIMEOUT_MS         5000
+#define DEFAULT_CONFIG_SYNC_HOURS       6
+#define DEFAULT_DIAGNOSTIC_INTERVAL_SEC 3600 
+
+
+// --- DEFAULT LOGIC & RESILIENCE ----------------------------------------------
+
+#define DEFAULT_MAX_AUTH_FAILURES           3
+#define DEFAULT_MAX_NETWORK_FAILURES        3
+#define DEFAULT_FAILSAFE_HYSTERESIS         0.5
+#define DEFAULT_TELEMETRY_MAX_BATCH_SIZE    50
+
+
+// --- SYSTEM HARDWARE PINS ----------------------------------------------------
+
+#define FACTORY_RESET_PIN       0
+#define FACTORY_RESET_HOLD_MS   3000 
+#define STATUS_LED_PIN          2
+
+
+// --- HARDWARE MODULES ACTIVATION (RESTORED) ----------------------------------
+// Actuators
+#define ENABLE_BOILER_RELAY
+
+// Sensors
+#define ENABLE_DALLAS_SENSOR
+
 
 #endif // BUILD_CONFIG_H

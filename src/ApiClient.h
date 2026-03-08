@@ -29,6 +29,15 @@ struct ApiResponse {
 };
 
 
+// --- ACTION RESPONSE STRUCT --------------------------------------------------
+struct ActionResponse {
+    bool success;
+    float modulation;
+    String otaUrl;
+    bool synced;
+};
+
+
 // --- API CLIENT --------------------------------------------------------------
 
 class ApiClient {
@@ -43,7 +52,7 @@ public:
     bool sendTelemetry(ConfigManager* config, String payload);
     void sendDiagnostics(ConfigManager* config, const std::vector<OasisDevice*>& devices);
     
-    bool pollActions(ConfigManager* config, float* outModulation);
+    ActionResponse pollActions(ConfigManager* config);
 
     bool fetchSchedule(ConfigManager* config, ScheduleManager* scheduleManager);
 

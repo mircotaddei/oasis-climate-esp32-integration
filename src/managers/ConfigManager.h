@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include "../utils/Logger.h"
+#include "../build_config.h"
 
 #define DEBUG_MODE_PHYSICAL
 
@@ -25,25 +26,6 @@
     #define DEBUG_PRINT(x)
     #define DEBUG_PRINTLN(...)
 #endif
-
-
-// --- FIRMWARE IDENTITY ------------------------------------------------------
-
-#define FIRMWARE_VERSION "0.1.0"
-#define DEVICE_TYPE "OASIS_THERMOSTAT_V1"
-
-
-// --- HARDWARE CONFIGURATION --------------------------------------------------
-
-#define FACTORY_RESET_PIN 0       
-#define FACTORY_RESET_HOLD_MS 3000 
-
-
-// --- DEVELOPMENT FALLBACKS ---------------------------------------------------
-
-#define FALLBACK_SSID "Casa"
-#define FALLBACK_PASS "birillino"
-#define FALLBACK_API_URL "http://192.168.10.103:8000/api/v1" 
 
 
 // --- CONFIG MANAGER CLASS ----------------------------------------------------
@@ -67,6 +49,7 @@ public:
     unsigned long heartbeatIntervalMs;
     unsigned long httpTimeoutMs;
     unsigned long diagnosticIntervalMs;
+    unsigned long configSyncIntervalMs;
 
     // --- RESILIENCE & LOGIC CONFIGURATIONS ---
     int maxAuthFailures;
