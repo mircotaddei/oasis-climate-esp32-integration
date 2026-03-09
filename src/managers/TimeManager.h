@@ -10,8 +10,12 @@
 class TimeManager {
 public:
     TimeManager();
-    void begin();
+
+    void begin(long gmtOffset, int daylightOffset, const char* ntpServer);
     void update();
+    
+    void applyTimezone(long gmtOffset, int daylightOffset);
+
     bool isTimeSet();
     unsigned long getEpoch();
     String getFormattedTime();
@@ -20,8 +24,8 @@ public:
 private:
     bool _isTimeSet;
     const char* _ntpServer = "pool.ntp.org";
-    const long _gmtOffset_sec = 0; // UTC
-    const int _daylightOffset_sec = 0; // No DST handling here, backend handles timezones
+    long _gmtOffset_sec = 0; // UTC
+    int _daylightOffset_sec = 0; // No DST handling here, backend handles timezones
 };
 
 #endif

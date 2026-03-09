@@ -31,6 +31,11 @@ ConfigManager::ConfigManager() {
     maxAuthFailures =       DEFAULT_MAX_AUTH_FAILURES;
     maxNetworkFailures =    DEFAULT_MAX_NETWORK_FAILURES;
     failsafeHysteresis =    DEFAULT_FAILSAFE_HYSTERESIS;
+
+    // Timezone Defaults
+    strlcpy(timezone, "UTC", sizeof(timezone));
+    gmtOffsetSec = 0;
+    daylightOffsetSec = 0;
     
     // Buffer Config
     telemetryBufferSize =       -1; // Auto
@@ -219,6 +224,27 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
         telemetryMaxBatchSize = deviceConfig["telemetry_max_batch_size"].as<int>();
     }
 
+    // Parse Timezone
+    if (deviceConfig["gmt_offset_sec"].is<long>() && deviceConfig["daylight_offset_sec"].is<int>()) {
+        gmtOffsetSec = deviceConfig["gmt_offset_sec"].as<long>();
+        daylightOffsetSec = deviceConfig["daylight_offset_sec"].as<int>();
+        
+        if (deviceConfig["timezone"].is<const char*>()) {
+            strlcpy(timezone, deviceConfig["timezone"].as<const char*>(), sizeof(timezone));
+        }
+        DEBUG_PRINTLN("[CONFIG] Timezone updated: ", timezone, " (Offset: ", gmtOffsetSec, ")");
+    } else {
+        // Fallback to UTC if numeric offsets are missing
+        gmtOffsetSec = 0;
+        daylightOffsetSec = 0;
+        strlcpy(timezone, "UTC", sizeof(timezone));
+        
+        if (deviceConfig["timezone"].is<const char*>()) {
+            DEBUG_PRINTLN("[CONFIG] WARN: Timezone string '", deviceConfig["timezone"].as<const char*>(), "' received without numeric offsets. Falling back to UTC.");
+        } else {
+            DEBUG_PRINTLN("[CONFIG] WARN: No timezone info received. Falling back to UTC.");
+        }
+    }
 
     DEBUG_PRINTLN("Provisioning config saved and applied.");
 

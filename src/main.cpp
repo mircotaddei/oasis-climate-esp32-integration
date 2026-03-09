@@ -146,6 +146,11 @@ bool performFullSync() {
     
     if (apiClient.fetchConfig(&configManager)) {
         DEBUG_PRINTLN("[SYNC] Config fetched. Syncing Thermostat state...");
+
+        DEBUG_PRINTLN("[SYNC] Applying timezone: ", configManager.timezone);
+        timeManager.applyTimezone(configManager.gmtOffsetSec, configManager.daylightOffsetSec);
+
+        DEBUG_PRINTLN("[SYNC] Updating Thermostat config...");
         apiClient.updateThermostatConfig(&configManager);
         
         DEBUG_PRINTLN("[SYNC] Registering Devices...");
@@ -175,7 +180,7 @@ void setup() {
     esp_task_wdt_add(NULL);
     
     // Initialize TimeManager early for logging capability
-    timeManager.begin();
+    timeManager.begin(configManager.gmtOffsetSec, configManager.daylightOffsetSec, "pool.ntp.org");
     
     #ifdef DEBUG_MODE
     Logger::setTimeProvider(&globalTimeProvider);

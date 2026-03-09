@@ -11,9 +11,17 @@ TimeManager::TimeManager() {
 
 // --- BEGIN -------------------------------------------------------------------
 
-void TimeManager::begin() {
-    // Do not call configTime here as it can be blocking.
-    // It will be called in update() once WiFi is connected.
+
+void TimeManager::begin(long gmtOffset, int daylightOffset, const char* ntpServer) {
+    _gmtOffset_sec = gmtOffset;
+    _daylightOffset_sec = daylightOffset;
+    _ntpServer = ntpServer;
+    
+    // configTime is non-blocking, it just sets up the parameters.
+    // The actual sync happens in the background.
+    // TODO check if true ----------------^
+    configTime(_gmtOffset_sec, _daylightOffset_sec, _ntpServer);
+    DEBUG_PRINTLN("[TIME] NTP Client configured. TZ Offset: ", _gmtOffset_sec);
     DEBUG_PRINTLN("[TIME] Manager initialized. Waiting for WiFi to sync NTP.");
 }
 
@@ -40,6 +48,19 @@ void TimeManager::update() {
 }
 
 
+// --- APPLY TIMEZONE ----------------------------------------------------------
+
+void TimeManager::applyTimezone(long gmtOffset, int daylightOffset) {
+    _gmtOffset_sec = gmtOffset;
+    _daylightOffset_sec = daylightOffset;
+    
+    // Re-configure system time with new offsets
+    configTime(_gmtOffset_sec, _daylightOffset_sec, _ntpServer);
+    
+    DEBUG_PRINTLN("[TIME] Timezone offsets updated: GMT=", _gmtOffset_sec, " DST=", _daylightOffset_sec);
+}
+
+
 // --- IS TIME SET -------------------------------------------------------------
 
 bool TimeManager::isTimeSet() {
@@ -59,12 +80,18 @@ unsigned long TimeManager::getEpoch() {
 // --- GET FORMATTED TIME ------------------------------------------------------
 
 String TimeManager::getFormattedTime() {
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) {
+    time_t now;
+    time(&now);
+    
+    // Use localtime instead of gmtime to respect the configured timezone
+    struct tm* timeinfo = localtime(&now);
+    
+    if (timeinfo == nullptr) {
         return "N/A";
     }
+    
     char buffer[30];
-    strftime(buffer, 30, "%Y-%m-%d %H:%M:%S", &timeinfo);
+    strftime(buffer, 30, "%Y-%m-%d %H:%M:%S", timeinfo);
     return String(buffer);
 }
 

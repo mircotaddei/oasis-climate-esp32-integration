@@ -62,6 +62,11 @@ public:
     unsigned long firstTelemetryDelayMs;
     int telemetryMaxBatchSize;
 
+    // --- TIMEZONE CONFIGURATION ---
+    char timezone[64];
+    long gmtOffsetSec;
+    int daylightOffsetSec;
+
     // State variables
     int apiFailureCount;
     int cloudTimeoutCount;
