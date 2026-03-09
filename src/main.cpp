@@ -225,15 +225,9 @@ void setup() {
     // 9. Initial State Determination
     DEBUG_PRINTLN("[SETUP] Determining initial state...");
     if (configManager.isClaimed()) {
-        if (configManager.isProvisioned()) {
-            DEBUG_PRINTLN("[MAIN] Device is claimed and provisioned. -> STATE_RUNNING");
-            currentState = STATE_RUNNING;
-            ledManager.setState(LED_ON);
-        } else {
-            DEBUG_PRINTLN("[MAIN] Device is claimed but needs config. -> STATE_PROVISIONING");
-            currentState = STATE_PROVISIONING;
-            ledManager.setState(LED_FAST_BLINK);
-        }
+        DEBUG_PRINTLN("[MAIN] Device is claimed. Verifying identity... -> STATE_PROVISIONING");
+        currentState = STATE_PROVISIONING;
+        ledManager.setState(LED_FAST_BLINK);
     } else {
         DEBUG_PRINTLN("[MAIN] Device NOT claimed. -> STATE_CLAIMING");
         currentState = STATE_CLAIMING;
@@ -348,8 +342,8 @@ void loop() {
             if (lastPollMillis == 0 || millis() - lastPollMillis > configManager.provisioningRetryMs) {
                 
                 lastPollMillis = millis();
-                DEBUG_PRINTLN("\n[MAIN] Triggering Config Fetch...");
-                
+                DEBUG_PRINTLN("\n[MAIN] Triggering Identity Verification & Config Sync...");
+
                 if (performFullSync()) {
                     DEBUG_PRINTLN("[MAIN] Provisioning Success! -> STATE_RUNNING");
                     currentState = STATE_RUNNING;

@@ -194,31 +194,73 @@ bool ApiClient::updateThermostatConfig(ConfigManager* config) {
 
 // --- REGISTER DEVICES --------------------------------------------------------
 
+// --- REGISTER DEVICES --------------------------------------------------------
+
 void ApiClient::registerDevices(ConfigManager* config, const std::vector<OasisDevice*>& devices) {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    DEBUG_PRINTLN("--- [API] Syncing Devices with Cloud ---");
+
     for (auto device : devices) {
         if (strlen(device->getLocalId()) == 0) continue;
 
+        bool exists = (strlen(device->getGlobalId()) > 0);
+        String method = exists ? "PATCH" : "POST";
+        String path;
+        
+        if (exists) {
+            // Update existing sensor: /api/v1/sensors/{sensor_id}
+            path = "/sensors/" + String(device->getGlobalId());
+        } else {
+            // Register new sensor: /api/v1/devices/{thermostat_id}/sensors
+            path = "/devices/" + String(config->deviceId) + "/sensors?auto_provision=true";
+        }
+
         JsonDocument doc;
-        doc["local_id"] = device->getLocalId();
-        doc["integration_source"] = "esp32";
+        if (!exists) {
+            doc["local_id"] = device->getLocalId();
+            doc["integration_source"] = "esp32";
+            doc["type"] = device->getSensorType();
+        }
+        
         doc["name"] = String("Device ") + String(device->getLocalId());
-        doc["type"] = device->getSensorType();
+        doc["is_active"] = device->isActive();
+
         JsonObject metaObj = doc["meta"].to<JsonObject>();
         device->populateMeta(metaObj);
 
         String payload;
         serializeJson(doc, payload);
-        String path = "/devices/" + String(config->deviceId) + "/sensors?auto_provision=true";
+        
+        DEBUG_PRINTLN("[API] ", method, " device: ", device->getLocalId());
+        ApiResponse res = executeRequest(config, method.c_str(), path.c_str(), payload, true);
 
-        ApiResponse res = executeRequest(config, "POST", path.c_str(), payload, true);
+        // Handle case where sensor was deleted from backend but exists in NVS
+        if (exists && res.code == 404) {
+            DEBUG_PRINTLN("[API] Sensor ", device->getGlobalId(), " not found on server. Re-registering...");
+            device->setGlobalId(""); // FIXME Clear ID and it will be caught in the next sync cycle or retry
+            // For simplicity, we skip re-POST in this same loop to avoid complexity, 
+            // it will be handled in the next performFullSync or reboot.
+            continue; 
+        }
 
         if (res.code == 200 || res.code == 201 || res.code == 409) {
             JsonDocument resDoc;
             if (deserializeJson(resDoc, res.body) == DeserializationError::Ok) {
-                if (resDoc["device_id"].is<const char*>()) device->setGlobalId(resDoc["device_id"]);
-                if (resDoc["is_active"].is<bool>()) device->setActive(resDoc["is_active"]);
-                if (resDoc["meta"].is<JsonObject>()) device->applyMeta(resDoc["meta"]);
                 
+                if (resDoc["device_id"].is<const char*>()) {
+                    device->setGlobalId(resDoc["device_id"].as<const char*>());
+                }
+
+                if (resDoc["is_active"].is<bool>()) {
+                    device->setActive(resDoc["is_active"].as<bool>());
+                }
+
+                if (resDoc["meta"].is<JsonObject>()) {
+                    device->applyMeta(resDoc["meta"]);
+                }
+                
+                // Finalize and persist local state
                 JsonDocument finalMetaDoc;
                 JsonObject finalMetaObj = finalMetaDoc.to<JsonObject>();
                 device->populateMeta(finalMetaObj);
@@ -226,6 +268,7 @@ void ApiClient::registerDevices(ConfigManager* config, const std::vector<OasisDe
             }
         }
     }
+    DEBUG_PRINTLN("--- [API] Device Sync END ---");
 }
 
 
