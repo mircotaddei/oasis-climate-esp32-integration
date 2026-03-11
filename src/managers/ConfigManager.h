@@ -8,21 +8,24 @@
 #include "../utils/Logger.h"
 #include "../build_config.h"
 
-#define DEBUG_MODE_PHYSICAL
-
 // --- DEBUGGING MACROS --------------------------------------------------------
+
+#define DEBUG_MODE_PHYSICAL
 
 #if defined(WOKWI_SIMULATION) || defined(DEBUG_MODE_PHYSICAL)
     #define DEBUG_MODE
 #endif
 
-#ifdef DEBUG_MODE
-    // Raw print without timestamp or newline
-    #define DEBUG_PRINT(x) Serial.print(x)
+#if defined(DEBUG_MODE) && defined(LOG_ENABLED)
+    
+    #define DEBUG_PRINT(x) \
+        do { if (Logger::shouldLog(LOG_TAG)) Serial.print(x); } while(0)
 
-    // Smart macro: accepts multiple arguments of any type
-    #define DEBUG_PRINTLN(...) Logger::println(__VA_ARGS__)
+    #define DEBUG_PRINTLN(...) \
+        do { if (Logger::shouldLog(LOG_TAG)) Logger::println(LOG_TAG, __VA_ARGS__); } while(0)
+
 #else
+    // If LOG_ENABLED is not defined in the .cpp file, compile to nothing
     #define DEBUG_PRINT(x)
     #define DEBUG_PRINTLN(...)
 #endif
@@ -67,6 +70,9 @@ public:
     char timezone[64];
     long gmtOffsetSec;
     int daylightOffsetSec;
+
+    // --- DEBUG CONFIGURATION ---
+    String activeDebugTags; // NEW: e.g., "MAIN,API" or "*"
 
     // State variables
     int apiFailureCount;

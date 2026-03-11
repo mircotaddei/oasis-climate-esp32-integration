@@ -1,3 +1,11 @@
+// --- LOG SETUP ---------------------------------------------------------------
+
+#define LOG_TAG "CONFIG"
+#define LOG_ENABLED
+
+
+// --- INCLUDES ----------------------------------------------------------------
+
 #include "ConfigManager.h"
 #include "../build_config.h"
 #include <HTTPClient.h> 
@@ -37,12 +45,16 @@ ConfigManager::ConfigManager() {
     gmtOffsetSec = 0;
     daylightOffsetSec = 0;
     
+    // Default to all tags enabled for development
+    activeDebugTags = "*";
+    
     // Buffer Config
     telemetryBufferSize =       -1; // Auto
     telemetryAutoBufferSize =   0;
     firstTelemetryDelayMs =     5000;
     telemetryMaxBatchSize =     DEFAULT_TELEMETRY_MAX_BATCH_SIZE;
     globalSendOnDelta =         DEFAULT_GLOBAL_SEND_ON_DELTA;
+
 }
 
 
@@ -249,6 +261,11 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
             DEBUG_PRINTLN("[CONFIG] WARN: No timezone info received. Falling back to UTC.");
         }
     }
+
+    if (deviceConfig["debug_tags"].is<const char*>()) {
+        activeDebugTags = deviceConfig["debug_tags"].as<String>();
+    }
+    
 
     DEBUG_PRINTLN("Provisioning config saved and applied.");
 

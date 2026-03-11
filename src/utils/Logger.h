@@ -3,42 +3,57 @@
 
 #include <Arduino.h>
 
+// --- FALLBACK TAG ------------------------------------------------------------
+// If a .cpp file forgets to define LOG_TAG before including headers, use this.
+#ifndef LOG_TAG
+    #define LOG_TAG "MISSING_TAG"
+#endif
+
 namespace Logger {
 
     // Function pointer type for time provider
     typedef String (*TimeProvider)();
     
-    // External declaration (defined in main.cpp)
+    // External declarations
     extern TimeProvider _timeProvider;
+    extern String _activeDebugTags; // Populated by ConfigManager
     
-    // Helper function (defined in main.cpp)
     void printTimestamp();
 
     inline void setTimeProvider(TimeProvider provider) {
         _timeProvider = provider;
     }
 
-    // Base case for the recursive template: prints a newline
+    // --- RUN-TIME FILTER -----------------------------------------------------
+    inline bool shouldLog(const char* tag) {
+        if (_activeDebugTags == "*") return true;
+        if (_activeDebugTags.length() == 0) return false;
+        
+        // Simple substring search (e.g., "MAIN,API,HW" contains "API")
+        return _activeDebugTags.indexOf(tag) >= 0;
+    }
+
+    // --- VARIADIC PRINTING ---------------------------------------------------
     inline void printArgs() {
         Serial.println();
     }
 
-    // Recursive template to print an arbitrary number of arguments
     template<typename T, typename... Args>
     inline void printArgs(T first, Args... args) {
         Serial.print(first);
         printArgs(args...); 
     }
 
-    // Main println function
     template<typename... Args>
-    inline void println(Args... args) {
+    inline void println(const char* tag, Args... args) {
         Serial.print("[");
         printTimestamp();
+        Serial.print("] [");
+        Serial.print(tag);
         Serial.print("] ");
         printArgs(args...);
     }
 
 } // namespace Logger
 
-#endif
+#endif // LOGGER_H

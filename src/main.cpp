@@ -1,3 +1,11 @@
+// --- LOG SETUP ---------------------------------------------------------------
+
+#define LOG_TAG "MAIN"
+#define LOG_ENABLED
+
+
+// --- INCLUDES ----------------------------------------------------------------
+
 #include <Arduino.h>
 #include <esp_task_wdt.h>
 #include "managers/ConfigManager.h"
@@ -11,8 +19,12 @@
 #include "ApiClient.h"
 #include "utils/Logger.h"
 
+
+// --- LOGGER IMPLEMENTATION ---------------------------------------------------
+
 namespace Logger {
     TimeProvider _timeProvider = nullptr;
+    String _activeDebugTags = "*"; // Define the global variable here
 
     void printTimestamp() {
         if (_timeProvider) {

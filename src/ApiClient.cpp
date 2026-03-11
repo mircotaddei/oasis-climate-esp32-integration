@@ -1,3 +1,11 @@
+// --- LOG SETUP ---------------------------------------------------------------
+
+#define LOG_TAG "API"
+#define LOG_ENABLED
+
+
+// --- INCLUDES ----------------------------------------------------------------
+
 #include <ArduinoJson.h>
 #include "ApiClient.h"
 #include "build_config.h"
@@ -173,6 +181,8 @@ bool ApiClient::updateThermostatConfig(ConfigManager* config) {
     meta["max_auth_failures"] = config->maxAuthFailures;
     meta["max_network_failures"] = config->maxNetworkFailures;
     meta["failsafe_hysteresis"] = config->failsafeHysteresis;
+
+    meta["debug_tags"] = config->activeDebugTags;
 
     String payload;
     serializeJson(doc, payload);
