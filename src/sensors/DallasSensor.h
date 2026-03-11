@@ -6,11 +6,9 @@
 #include <DallasTemperature.h>
 
 // --- HARDWARE DEFAULTS -------------------------------------------------------
-
 #define DEFAULT_ONEWIRE_PIN 4
 
 // --- SOFTWARE DEFAULTS -------------------------------------------------------
-
 #define DEFAULT_DALLAS_OFFSET 0.0
 #define DEFAULT_DALLAS_ALPHA 0.2
 #define MAX_TEMP_JUMP 5.0
@@ -24,23 +22,18 @@ public:
     // OasisDevice Interface
     void begin() override;
     void update() override;
-
     OasisDeviceType getType() const override;
     const char* getLocalId() const override;
-
     const char* getGlobalId() const override;
     void setGlobalId(const char* globalId) override;
-
     bool isActive() const override;
     void setActive(bool state) override;
     bool isConnected() const override;
-
-    const char* getSensorType() const override;
+    
     float getTelemetryValue() const override;
-
+    
     void populateMeta(JsonObject& meta) const override;
     void applyMeta(JsonObjectConst meta) override;
-
     void populateDiagnostics(JsonObject& metrics, JsonObject& tags) override;
 
     // SensorDriver Interface
@@ -49,6 +42,10 @@ public:
     unsigned long getWarmupTimeMs() const override;
     unsigned int getErrorCount() const override;
     void clearErrorCount() override;
+
+    // Calibration (Specific to DallasSensor, no override)
+    void setOffset(float offset);
+    float getOffset();
 
 private:
     int _pin;
@@ -65,10 +62,9 @@ private:
     bool _isConnected;
     unsigned long _reconnectMillis; 
 
-    // Software Configuration (Meta)
+    // Software Configuration (Specific to Dallas)
     float _offset;
-    float _alpha; // Smoothing factor
-    char _sensorType[32];
+    float _alpha; 
     
     // Internal State
     unsigned int _errorCount;

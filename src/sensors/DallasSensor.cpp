@@ -19,7 +19,10 @@ DallasSensor::DallasSensor(int pin) {
     // Load Defaults
     _offset = DEFAULT_DALLAS_OFFSET;
     _alpha = DEFAULT_DALLAS_ALPHA;
+    
+    // Set Base Class Defaults
     strlcpy(_sensorType, "temp_in", sizeof(_sensorType));
+    _reportDelta = 0.1; // Default for temperature
     
     _errorCount = 0;
     _filteredTemp = NAN;
@@ -135,10 +138,6 @@ void DallasSensor::applyFilter(float rawTemp) {
 
 // --- UNIFIED TELEMETRY INTERFACE ---------------------------------------------
 
-const char* DallasSensor::getSensorType() const {
-    return _sensorType;
-}
-
 float DallasSensor::getTelemetryValue() const {
     return getTemperature();
 }
@@ -150,32 +149,28 @@ float DallasSensor::getTelemetryValue() const {
 // --- POPULATE META -----------------------------------------------------------
 
 void DallasSensor::populateMeta(JsonObject& meta) const {
+    OasisDevice::populateMeta(meta);
+    
     meta["pin"] = _pin;
     meta["offset"] = _offset;
     meta["alpha"] = _alpha;
-    meta["sensor_type"] = _sensorType;
 }
 
 
 // --- APPLY META --------------------------------------------------------------
 
 void DallasSensor::applyMeta(JsonObjectConst meta) {
-
+    OasisDevice::applyMeta(meta);
+    
     if (meta["offset"].is<float>()) {
         _offset = meta["offset"].as<float>();
     }
-
     if (meta["alpha"].is<float>()) {
         _alpha = meta["alpha"].as<float>();
         if (_alpha < 0.01) _alpha = 0.01;
         if (_alpha > 1.0) _alpha = 1.0;
     }
-
-    if (meta["sensor_type"].is<const char*>()) {
-        strlcpy(_sensorType, meta["sensor_type"].as<const char*>(), sizeof(_sensorType));
-    }
-
-    DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Type: ", _sensorType, " Offset: ", _offset);
+    DEBUG_PRINTLN("[SENSOR] ", _id, " Meta Applied. Offset: ", _offset);
 }
 
 

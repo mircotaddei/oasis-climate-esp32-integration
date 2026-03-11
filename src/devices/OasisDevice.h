@@ -5,7 +5,6 @@
 #include <ArduinoJson.h>
 
 // --- DEVICE TYPES ------------------------------------------------------------
-
 enum OasisDeviceType {
     DEVICE_TYPE_UNKNOWN,
     DEVICE_TYPE_SENSOR_DALLAS,
@@ -16,17 +15,14 @@ enum OasisDeviceType {
 
 class OasisDevice; // Forward declaration
 
-// --- TELEMETRY CALLBACK ------------------------------------------------------
-
+// --- TELEMETRY CALLBACK TYPE -------------------------------------------------
 typedef void (*TelemetryCallback)(OasisDevice* device, float value);
 
-
-// --- OASIS DEVICE ------------------------------------------------------------
-
+// --- BASE CLASS --------------------------------------------------------------
 class OasisDevice {
 public:
-    OasisDevice() : _telemetryCallback(nullptr) {}
-    virtual ~OasisDevice() {}
+    OasisDevice();
+    virtual ~OasisDevice();
 
     // Lifecycle
     virtual void begin() = 0;
@@ -44,28 +40,31 @@ public:
     virtual bool isConnected() const = 0;
 
     // Unified Telemetry Interface
-    virtual const char* getSensorType() const = 0; 
+    const char* getSensorType() const; 
     virtual float getTelemetryValue() const = 0; 
 
-    // Configuration (Meta)
-    virtual void populateMeta(JsonObject& meta) const = 0;
-    virtual void applyMeta(JsonObjectConst meta) = 0;
+    // Configuration (Meta) - Base implementation handles common fields
+    virtual void populateMeta(JsonObject& meta) const;
+    virtual void applyMeta(JsonObjectConst meta);
+
+    // Event Driven Telemetry
+    void setTelemetryCallback(TelemetryCallback cb);
+    bool shouldReport(float newValue, bool globalEnable);
 
     // Diagnostics
-    virtual void populateDiagnostics(JsonObject& metrics, JsonObject& tags) { /* Default - does nothing */ }
-
-    // Event-Driven Telemetry
-    void setTelemetryCallback(TelemetryCallback cb) {
-        _telemetryCallback = cb;
-    }
+    virtual void populateDiagnostics(JsonObject& metrics, JsonObject& tags);
 
 protected:
-    // Helper for child classes to emit events when their state changes
-    void emitTelemetry(float value) {
-        if (_telemetryCallback && isActive() && isConnected()) {
-            _telemetryCallback(this, value);
-        }
-    }
+    void emitTelemetry(float value);
+
+    // Common Configuration Variables
+    char _sensorType[32];
+    float _reportDelta;
+    int _reportHeartbeat;
+
+    // Internal State for Send on Delta
+    float _lastReportedValue;
+    int _samplesSinceLastReport;
 
 private:
     TelemetryCallback _telemetryCallback;

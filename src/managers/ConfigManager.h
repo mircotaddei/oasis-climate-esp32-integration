@@ -61,6 +61,7 @@ public:
     int telemetryAutoBufferSize;  // Calculated value
     unsigned long firstTelemetryDelayMs;
     int telemetryMaxBatchSize;
+        bool globalSendOnDelta;
 
     // --- TIMEZONE CONFIGURATION ---
     char timezone[64];

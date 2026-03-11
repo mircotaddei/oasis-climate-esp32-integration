@@ -39,6 +39,7 @@
 #define DEFAULT_MAX_NETWORK_FAILURES        3
 #define DEFAULT_FAILSAFE_HYSTERESIS         0.5
 #define DEFAULT_TELEMETRY_MAX_BATCH_SIZE    50
+#define DEFAULT_GLOBAL_SEND_ON_DELTA        true
 
 
 // --- SYSTEM HARDWARE PINS ----------------------------------------------------

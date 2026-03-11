@@ -47,13 +47,11 @@ private:
     unsigned long _lastCommandMillis;
     
     // OasisDevice Interface
-    const char* getSensorType() const override;
     float getTelemetryValue() const override;
 
     // Software Configuration (Meta)
     float _modulationThreshold;
     unsigned long _safetyTimeoutMs;
-    char _sensorType[32];
 
     void turnOn();
     void turnOff();

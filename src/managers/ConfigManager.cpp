@@ -42,6 +42,7 @@ ConfigManager::ConfigManager() {
     telemetryAutoBufferSize =   0;
     firstTelemetryDelayMs =     5000;
     telemetryMaxBatchSize =     DEFAULT_TELEMETRY_MAX_BATCH_SIZE;
+    globalSendOnDelta =         DEFAULT_GLOBAL_SEND_ON_DELTA;
 }
 
 
@@ -222,6 +223,9 @@ void ConfigManager::saveConfig(const char* jsonConfigString) {
     }
     if (deviceConfig["telemetry_max_batch_size"].is<int>()) {
         telemetryMaxBatchSize = deviceConfig["telemetry_max_batch_size"].as<int>();
+    }
+    if (deviceConfig["global_send_on_delta"].is<bool>()) {
+        globalSendOnDelta = deviceConfig["global_send_on_delta"].as<bool>();
     }
 
     // Parse Timezone
